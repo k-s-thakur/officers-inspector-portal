@@ -1,0 +1,12 @@
+# Vercel Ignore file
+# Exclude heavy ZIP and raw data files
+officers inspection12.zip
+*.zip
+
+# Exclude python utility scripts
+compile_database.py
+seed_database.py
+
+# Exclude excel spreadsheets used to compile database.js
+**/*.xlsx
+**/*.xls

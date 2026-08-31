@@ -1,0 +1,17 @@
+# Git Ignore file
+# Ignore OS generated files
+.DS_Store
+Thumbs.db
+
+# Exclude heavy ZIP and raw data files
+officers inspection12.zip
+*.zip
+
+# Exclude Excel files since database is pre-compiled to js/database.js
+**/*.xlsx
+**/*.xls
+
+# Local environment settings
+.env
+.env.local
+.env.*.local
