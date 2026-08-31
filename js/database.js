@@ -1,16 +1,16 @@
 // Auto-generated Database from Excel files
-// Generated at: 2026-08-31 07:19:47
+// Generated at: 2026-08-31 09:47:23
 
 const REAL_DATABASE = {
   officers: [
   {
     "id": "O1",
-    "name": "Sh Mayank Chaturvedi Collector",
+    "name": "Shri Devesh Kumar Dhruv, IAS Collector",
     "designation": "Collector"
   },
   {
     "id": "O2",
-    "name": "Sh Kumar Biswaranjan CEO ZP",
+    "name": "Shri M Bhargav, IAS CEO ZP",
     "designation": "CEO ZP"
   },
   {
@@ -77,6 +77,11 @@ const REAL_DATABASE = {
     "id": "O15",
     "name": "Sh Prateek Durandhar CEO JP Kuakonda",
     "designation": "CEO ZP"
+  },
+  {
+    "id": "O16",
+    "name": "Shri Chandramohan Singh (IPS) SP Dantewada",
+    "designation": "SP"
   }
 ],
   schools: [
@@ -20828,7 +20833,7 @@ const REAL_DATABASE = {
         "date": "2026-06-25",
         "stage": "Plinth",
         "progressPercent": 40,
-        "officerName": "Sh Kumar Biswaranjan CEO ZP",
+        "officerName": "Shri M Bhargav, IAS CEO ZP",
         "remarks": "Plinth masonry filling and DPC completed. Columns structure reinforcement being prepared.",
         "photo": "OfficersInspection-931750319-26-08-22-20260824T043528Z-1-001/OfficersInspection-931750319-26-08-22/SchoolAshram 2_Images/50f919db.विभाग द्वारा अपलोड किया गया फोटो.081337.jpg"
       },
@@ -20837,7 +20842,7 @@ const REAL_DATABASE = {
         "date": "2026-08-15",
         "stage": "Structure",
         "progressPercent": 70,
-        "officerName": "Sh Mayank Chaturvedi Collector",
+        "officerName": "Shri Devesh Kumar Dhruv, IAS Collector",
         "remarks": "Brick masonry work is in progress. Lintels and columns look clean. Shuttering for the roof slab is ongoing.",
         "photo": "OfficersInspection-931750319-26-08-22-20260824T043528Z-1-001/OfficersInspection-931750319-26-08-22/SchoolAshram 2_Images/4fa449d0.Image.084349.jpg"
       }
@@ -20880,7 +20885,7 @@ const REAL_DATABASE = {
         "date": "2026-07-20",
         "stage": "Roofing",
         "progressPercent": 80,
-        "officerName": "Sh Kumar Biswaranjan CEO ZP",
+        "officerName": "Shri M Bhargav, IAS CEO ZP",
         "remarks": "Roof slab concrete poured and curing is under progress. Brickwork completed.",
         "photo": "OfficersInspection-931750319-26-08-22-20260824T043528Z-1-001/OfficersInspection-931750319-26-08-22/Anganwadi_Images/62e8bf33.विभाग द्वारा अपलोड की गई फोटो.110738.jpg"
       },
@@ -20889,7 +20894,7 @@ const REAL_DATABASE = {
         "date": "2026-08-22",
         "stage": "Finishing",
         "progressPercent": 90,
-        "officerName": "Sh Mayank Chaturvedi Collector",
+        "officerName": "Shri Devesh Kumar Dhruv, IAS Collector",
         "remarks": "Plastering done, window grills installed. Painting starting. Handover expected in 2 weeks.",
         "photo": "OfficersInspection-931750319-26-08-22-20260824T043528Z-1-001/OfficersInspection-931750319-26-08-22/Anganwadi_Images/0be73746.Image.055247.jpg"
       }
@@ -20948,7 +20953,7 @@ const REAL_DATABASE = {
         "date": "2026-08-18",
         "stage": "Foundation",
         "progressPercent": 20,
-        "officerName": "Sh Kumar Biswaranjan CEO ZP",
+        "officerName": "Shri M Bhargav, IAS CEO ZP",
         "remarks": "Excavation started. Brick lining in progress. Contractor was advised to install safety signs.",
         "photo": "OfficersInspection-931750319-26-08-22-20260824T043528Z-1-001/OfficersInspection-931750319-26-08-22/Health_Images/c57621dd.विभाग द्वारा अपलोड की गई फोटो.085344.jpg"
       }
@@ -20991,7 +20996,7 @@ const REAL_DATABASE = {
         "date": "2026-08-20",
         "stage": "Completed",
         "progressPercent": 100,
-        "officerName": "Sh Mayank Chaturvedi Collector",
+        "officerName": "Shri Devesh Kumar Dhruv, IAS Collector",
         "remarks": "Tin sheets installed, plastering and floor screed completed. Clean and ready to use.",
         "photo": "OfficersInspection-931750319-26-08-22-20260824T043528Z-1-001/OfficersInspection-931750319-26-08-22/VetServices_Images/3e988ca9.Image.045258.jpg"
       }

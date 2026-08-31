@@ -133,12 +133,22 @@ for r in formap_rows:
             pass
 
 # 2. Parse officers
+OFFICER_NAME_MAP = {
+    "Sh Mayank Chaturvedi Collector": "Shri Devesh Kumar Dhruv, IAS Collector",
+    "Sh Kumar Biswaranjan CEO ZP": "Shri M Bhargav, IAS CEO ZP"
+}
+
+def map_officer_name(name):
+    name_stripped = name.strip()
+    return OFFICER_NAME_MAP.get(name_stripped, name_stripped)
+
 officer_rows = get_rows(os.path.join(db_dir, "officer.xlsx"), has_header=True)
 officers = []
 for r in officer_rows:
     oid = r.get("ID", "").strip()
     name = r.get("Name", "").strip()
     if name:
+        name = map_officer_name(name)
         designation = "Officer"
         if "Collector" in name:
             designation = "Collector"
@@ -154,12 +164,21 @@ for r in officer_rows:
             designation = "Executive Engineer"
         elif "DPO" in name:
             designation = "DPO"
+        elif "SP" in name or "IPS" in name:
+            designation = "SP"
         
         officers.append({
             "id": "O" + str(int(float(oid))) if oid else name,
             "name": name,
             "designation": designation
         })
+
+# Append SP Dantewada
+officers.append({
+    "id": "O16",
+    "name": "Shri Chandramohan Singh (IPS) SP Dantewada",
+    "designation": "SP"
+})
 
 # 3. Parse Schools
 school_rows = get_rows(os.path.join(db_dir, "SCHOOLS.xlsx"), has_header=True)
@@ -290,7 +309,7 @@ for idx, r in enumerate(inspections_raw):
         "village": r.get("आश्रित ग्राम ", "").strip(),
         "facilityName": r.get("शाला का नाम ", "").strip(),
         "date": date_str,
-        "officerName": r.get("अधिकारी का नाम एवं पदनाम ", "").strip(),
+        "officerName": map_officer_name(r.get("अधिकारी का नाम एवं पदनाम ", "").strip()),
         "status": "Submitted",
         "remarks": r.get("अधिकारी का टीप ", "").strip(),
         "photo": photo_path,
@@ -343,7 +362,7 @@ physical_projects = [
                 "date": "2026-06-25",
                 "stage": "Plinth",
                 "progressPercent": 40,
-                "officerName": "Sh Kumar Biswaranjan CEO ZP",
+                "officerName": "Shri M Bhargav, IAS CEO ZP",
                 "remarks": "Plinth masonry filling and DPC completed. Columns structure reinforcement being prepared.",
                 "photo": school_images[1] if len(school_images) > 1 else ""
             },
@@ -352,7 +371,7 @@ physical_projects = [
                 "date": "2026-08-15",
                 "stage": "Structure",
                 "progressPercent": 70,
-                "officerName": "Sh Mayank Chaturvedi Collector",
+                "officerName": "Shri Devesh Kumar Dhruv, IAS Collector",
                 "remarks": "Brick masonry work is in progress. Lintels and columns look clean. Shuttering for the roof slab is ongoing.",
                 "photo": school_images[2] if len(school_images) > 2 else ""
             }
@@ -395,7 +414,7 @@ physical_projects = [
                 "date": "2026-07-20",
                 "stage": "Roofing",
                 "progressPercent": 80,
-                "officerName": "Sh Kumar Biswaranjan CEO ZP",
+                "officerName": "Shri M Bhargav, IAS CEO ZP",
                 "remarks": "Roof slab concrete poured and curing is under progress. Brickwork completed.",
                 "photo": anganwadi_images[2] if len(anganwadi_images) > 2 else ""
             },
@@ -404,7 +423,7 @@ physical_projects = [
                 "date": "2026-08-22",
                 "stage": "Finishing",
                 "progressPercent": 90,
-                "officerName": "Sh Mayank Chaturvedi Collector",
+                "officerName": "Shri Devesh Kumar Dhruv, IAS Collector",
                 "remarks": "Plastering done, window grills installed. Painting starting. Handover expected in 2 weeks.",
                 "photo": anganwadi_images[3] if len(anganwadi_images) > 3 else ""
             }
@@ -463,7 +482,7 @@ physical_projects = [
                 "date": "2026-08-18",
                 "stage": "Foundation",
                 "progressPercent": 20,
-                "officerName": "Sh Kumar Biswaranjan CEO ZP",
+                "officerName": "Shri M Bhargav, IAS CEO ZP",
                 "remarks": "Excavation started. Brick lining in progress. Contractor was advised to install safety signs.",
                 "photo": health_images[2] if len(health_images) > 2 else ""
             }
@@ -506,7 +525,7 @@ physical_projects = [
                 "date": "2026-08-20",
                 "stage": "Completed",
                 "progressPercent": 100,
-                "officerName": "Sh Mayank Chaturvedi Collector",
+                "officerName": "Shri Devesh Kumar Dhruv, IAS Collector",
                 "remarks": "Tin sheets installed, plastering and floor screed completed. Clean and ready to use.",
                 "photo": vet_images[2] if len(vet_images) > 2 else ""
             }
