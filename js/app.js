@@ -1580,7 +1580,10 @@ function handleFormSubmit(e) {
   
   const officerName = document.getElementById('form-officer-name')?.value.trim() || "";
   const officerDesignation = document.getElementById('form-officer-designation')?.value.trim() || "";
-  const officerPhone = document.getElementById('form-officer-phone')?.value.trim() || "";
+  const rawOfficerPhone = document.getElementById('form-officer-phone')?.value.trim() || "";
+  const officerPhone = rawOfficerPhone.replace(/\D/g, '').slice(0, 10);
+  const phoneInput = document.getElementById('form-officer-phone');
+  if (phoneInput) phoneInput.value = officerPhone;
   
   const deptId = document.getElementById('form-select-dept').value;
   const block = document.getElementById('form-select-block').value;
@@ -1592,6 +1595,12 @@ function handleFormSubmit(e) {
   if (!officerName || !officerDesignation || !officerPhone) {
     showToast("error", "त्रुटि", "कृपया अधिकारी का नाम, पदनाम एवं फोन नंबर दर्ज करें!");
     toggleOfficerEditMode(true);
+    return;
+  }
+
+  if (!/^\d{10}$/.test(officerPhone)) {
+    showToast("error", "त्रुटि", "कृपया 10 अंकों का सही मोबाइल नंबर दर्ज करें!");
+    if (phoneInput) phoneInput.focus();
     return;
   }
   
