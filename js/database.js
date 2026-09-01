@@ -1,5 +1,5 @@
 // Auto-generated Database from Excel files
-// Generated at: 2026-08-31 09:47:23
+// Generated at: 2026-09-01 09:17:29
 
 const REAL_DATABASE = {
   officers: [
@@ -21002,9 +21002,942 @@ const REAL_DATABASE = {
       }
     ]
   }
-]
+],
+  hierarchy: {
+  "DANTEWADA": {
+    "name": "दंतेवाड़ा (Dantewada)",
+    "panchayats": {
+      "Badebacheli": [
+        "Badebacheli"
+      ],
+      "Badebachelinp": [
+        "Badebachelinp"
+      ],
+      "Badekameli": [
+        "Badekameli"
+      ],
+      "Balood": [
+        "Balood"
+      ],
+      "Balpet": [
+        "Balpet",
+        "Bhairamband"
+      ],
+      "Benpal": [
+        "Benpal"
+      ],
+      "Bhansi": [
+        "Bhansi",
+        "Porokameli"
+      ],
+      "Bhogam": [
+        "Bhogam",
+        "Purantarai"
+      ],
+      "Chandenar": [
+        "Chandenar"
+      ],
+      "Chitalanka": [
+        "Chitalanka"
+      ],
+      "Chitaloor": [
+        "Chitaloor"
+      ],
+      "Dantewadanp": [
+        "Dantewadanp"
+      ],
+      "Degalras": [
+        "Degalras"
+      ],
+      "Dhurli": [
+        "Dhurli"
+      ],
+      "Dugeli": [
+        "Dugeli"
+      ],
+      "Dumam": [
+        "Dabpal",
+        "Dumam"
+      ],
+      "Gadapal": [
+        "Gadapal"
+      ],
+      "Gamawada": [
+        "Gamawada"
+      ],
+      "Ganjenar": [
+        "Ganjenar"
+      ],
+      "Jaram": [
+        "Jaram"
+      ],
+      "Jhirka": [
+        "Jhirka"
+      ],
+      "Kamaloor": [
+        "Basanpur",
+        "Kamaloor",
+        "Kundeli"
+      ],
+      "Kawadgaon": [
+        "Kawadgaon"
+      ],
+      "Kawalnar": [
+        "Kawalnar"
+      ],
+      "Keshapur": [
+        "Keshapur",
+        "Midkulnar"
+      ],
+      "Khokhsa": [
+        "Gondpal",
+        "Jhirka",
+        "Khokhsa",
+        "Pandewar"
+      ],
+      "Kumharras": [
+        "Kumharras"
+      ],
+      "Kundeli": [
+        "Kundeli"
+      ],
+      "Kuper": [
+        "Kuper"
+      ],
+      "Mangnar": [
+        "Mangnar"
+      ],
+      "Masenar": [
+        "Masenar"
+      ],
+      "Matenar": [
+        "Matenar"
+      ],
+      "Metapal": [
+        "Metapal"
+      ],
+      "Metapal02": [
+        "Metapal-02",
+        "Metapal02"
+      ],
+      "Molasnar": [
+        "Kuhchepal",
+        "Molasnar",
+        "Udela"
+      ],
+      "Murkee": [
+        "Murkee",
+        "Murki"
+      ],
+      "Muskel": [
+        "Muskel"
+      ],
+      "Nerli": [
+        "Behnar",
+        "Nerli"
+      ],
+      "Netapur": [
+        "Badegodre",
+        "Netapur"
+      ],
+      "Padhapur": [
+        "Bainpal",
+        "Padhapur",
+        "Pinabacheli"
+      ],
+      "Pandewar": [
+        "Pandewar"
+      ],
+      "Phulnar": [
+        "Fulnar",
+        "Muskel",
+        "Phulnar"
+      ],
+      "Pondum": [
+        "Pondum"
+      ],
+      "Pondum2": [
+        "Pondum-02",
+        "Pondum2"
+      ],
+      "Teknar": [
+        "Teknar"
+      ],
+      "Toyalanka": [
+        "Toyalanka",
+        "Toylanka"
+      ],
+      "Tudparas": [
+        "Degalras",
+        "Tudparas"
+      ]
+    },
+    "villages": [
+      "Badebacheli",
+      "Badebachelinp",
+      "Badegodre",
+      "Badekameli",
+      "Bainpal",
+      "Balood",
+      "Balpet",
+      "Basanpur",
+      "Behnar",
+      "Benpal",
+      "Bhairamband",
+      "Bhansi",
+      "Bhogam",
+      "Chandenar",
+      "Chitalanka",
+      "Chitaloor",
+      "Dabpal",
+      "Dantewadanp",
+      "Degalras",
+      "Dhurli",
+      "Dugeli",
+      "Dumam",
+      "Fulnar",
+      "Gadapal",
+      "Gamawada",
+      "Ganjenar",
+      "Gondpal",
+      "Jaram",
+      "Jhirka",
+      "Kamaloor",
+      "Kawadgaon",
+      "Kawalnar",
+      "Keshapur",
+      "Khokhsa",
+      "Kuhchepal",
+      "Kumharras",
+      "Kundeli",
+      "Kuper",
+      "Mangnar",
+      "Masenar",
+      "Matenar",
+      "Metapal",
+      "Metapal-02",
+      "Metapal02",
+      "Midkulnar",
+      "Molasnar",
+      "Murkee",
+      "Murki",
+      "Muskel",
+      "Nerli",
+      "Netapur",
+      "Padhapur",
+      "Pandewar",
+      "Phulnar",
+      "Pinabacheli",
+      "Pondum",
+      "Pondum-02",
+      "Pondum2",
+      "Porokameli",
+      "Purantarai",
+      "Teknar",
+      "Toyalanka",
+      "Toylanka",
+      "Tudparas",
+      "Udela"
+    ]
+  },
+  "GEEDAM": {
+    "name": "गीदम (Geedam)",
+    "panchayats": {
+      "Aalnar": [
+        "Aalnar",
+        "Alnar"
+      ],
+      "Badekarka": [
+        "Badekarka"
+      ],
+      "Badekarli": [
+        "BadeKarli"
+      ],
+      "Badepaneda": [
+        "Badepaneda"
+      ],
+      "Badepaneda 02": [
+        "Badepaneda 02"
+      ],
+      "Badesurokhi": [
+        "Badesurokhi",
+        "Siyanar"
+      ],
+      "Badetumnar": [
+        "Badetumnar"
+      ],
+      "Bangapal": [
+        "Bangapal"
+      ],
+      "Barsoornp": [
+        "Barsoornp"
+      ],
+      "Bhatpal": [
+        "Bhatpal",
+        "Neurnar",
+        "Udenar"
+      ],
+      "Binjam": [
+        "Binjam"
+      ],
+      "Bodli": [
+        "Bodali",
+        "Bodli"
+      ],
+      "Budpadar": [
+        "Budpadar"
+      ],
+      "Cherpal": [
+        "Cherpal",
+        "Chhote Karka",
+        "Padmeta"
+      ],
+      "Chhindnar": [
+        "Chhindnar"
+      ],
+      "Chhotetumnar": [
+        "Chhotetumar",
+        "Chhotetumnar",
+        "Chotetumnar",
+        "Kandakarka"
+      ],
+      "Fundri": [
+        "Farasmadur",
+        "Fundari",
+        "Fundri"
+      ],
+      "Geedamnp": [
+        "Geedamnp"
+      ],
+      "Ghotpal": [
+        "Ghotpal"
+      ],
+      "Ghotpal02": [
+        "Ghotpal-02",
+        "Ghotpal02"
+      ],
+      "Gumalnar": [
+        "Gumalnar",
+        "Nelgoda"
+      ],
+      "Gumda": [
+        "Gumda"
+      ],
+      "Gutoli": [
+        "Gutoli",
+        "Tarlapal"
+      ],
+      "Haram": [
+        "Haram"
+      ],
+      "Haram 02": [
+        "Haram 02"
+      ],
+      "Harla": [
+        "Harla"
+      ],
+      "Haurnar": [
+        "Haurnar"
+      ],
+      "Hidpal": [
+        "Hidpal"
+      ],
+      "Hiranar": [
+        "Hiranar"
+      ],
+      "Hiranar 02": [
+        "Hiranar 02"
+      ],
+      "Hitameta": [
+        "Hitameta"
+      ],
+      "Javanga": [
+        "Jaunga",
+        "Javanga"
+      ],
+      "Jhodiya Badam": [
+        "Jhodiya Badam",
+        "Jhodiyawadam",
+        "Kutulnar"
+      ],
+      "Jodatarai": [
+        "Harla",
+        "Jodatarai"
+      ],
+      "Karli": [
+        "Karli"
+      ],
+      "Karli 02": [
+        "Karli 02",
+        "Karli 2"
+      ],
+      "Kasoli": [
+        "Kasoli"
+      ],
+      "Kasoli02": [
+        "Budhpadar",
+        "Kasoli-02",
+        "Kasoli02"
+      ],
+      "Katulnar": [
+        "Katulnar",
+        "Madhpal"
+      ],
+      "Kaurgaon": [
+        "Kaurgaon"
+      ],
+      "Korkati": [
+        "Korkati",
+        "Korkoti",
+        "Reka"
+      ],
+      "Korlapal": [
+        "Korlapal",
+        "Nagphani"
+      ],
+      "Kundenar": [
+        "Kundenar",
+        "Masodi"
+      ],
+      "Madpal": [
+        "Madpal"
+      ],
+      "Madse": [
+        "Madase",
+        "Madse"
+      ],
+      "Mophalnar": [
+        "Mofalnar",
+        "Mophalnar"
+      ],
+      "Muchnar": [
+        "Muchnar"
+      ],
+      "Munder": [
+        "Muhander",
+        "Munder"
+      ],
+      "Mustalnar": [
+        "Mustalnar",
+        "Salnar"
+      ],
+      "Nagul": [
+        "Hiroli",
+        "Nagul"
+      ],
+      "Nailagoda": [
+        "Nailagoda"
+      ],
+      "Pahurnar": [
+        "Badekarka",
+        "Pahurnar"
+      ],
+      "Pharaspal": [
+        "Faraspal",
+        "Pharaspal"
+      ],
+      "Ronje": [
+        "Ronje"
+      ],
+      "Samlur": [
+        "Samlur"
+      ],
+      "Siyanar": [
+        "Siyanar"
+      ],
+      "Tumrigunda": [
+        "Tumirgunda",
+        "Tumrigunda"
+      ],
+      "Upet": [
+        "Upet"
+      ]
+    },
+    "villages": [
+      "Aalnar",
+      "Alnar",
+      "Badekarka",
+      "BadeKarli",
+      "Badepaneda",
+      "Badepaneda 02",
+      "Badesurokhi",
+      "Badetumnar",
+      "Bangapal",
+      "Barsoornp",
+      "Bhatpal",
+      "Binjam",
+      "Bodali",
+      "Bodli",
+      "Budhpadar",
+      "Budpadar",
+      "Cherpal",
+      "Chhindnar",
+      "Chhote Karka",
+      "Chhotetumar",
+      "Chhotetumnar",
+      "Chotetumnar",
+      "Farasmadur",
+      "Faraspal",
+      "Fundari",
+      "Fundri",
+      "Geedamnp",
+      "Ghotpal",
+      "Ghotpal-02",
+      "Ghotpal02",
+      "Gumalnar",
+      "Gumda",
+      "Gutoli",
+      "Haram",
+      "Haram 02",
+      "Harla",
+      "Haurnar",
+      "Hidpal",
+      "Hiranar",
+      "Hiranar 02",
+      "Hiroli",
+      "Hitameta",
+      "Jaunga",
+      "Javanga",
+      "Jhodiya Badam",
+      "Jhodiyawadam",
+      "Jodatarai",
+      "Kandakarka",
+      "Karli",
+      "Karli 02",
+      "Karli 2",
+      "Kasoli",
+      "Kasoli-02",
+      "Kasoli02",
+      "Katulnar",
+      "Kaurgaon",
+      "Korkati",
+      "Korkoti",
+      "Korlapal",
+      "Kundenar",
+      "Kutulnar",
+      "Madase",
+      "Madhpal",
+      "Madpal",
+      "Madse",
+      "Masodi",
+      "Mofalnar",
+      "Mophalnar",
+      "Muchnar",
+      "Muhander",
+      "Munder",
+      "Mustalnar",
+      "Nagphani",
+      "Nagul",
+      "Nailagoda",
+      "Nelgoda",
+      "Neurnar",
+      "Padmeta",
+      "Pahurnar",
+      "Pharaspal",
+      "Reka",
+      "Ronje",
+      "Salnar",
+      "Samlur",
+      "Siyanar",
+      "Tarlapal",
+      "Tumirgunda",
+      "Tumrigunda",
+      "Udenar",
+      "Upet"
+    ]
+  },
+  "KATEKALYAN": {
+    "name": "कटेकल्याण (Katekalyan)",
+    "panchayats": {
+      "Atepal": [
+        "Atepal",
+        "Jihakodta"
+      ],
+      "Badebedma": [
+        "Bade Bedma",
+        "Badebedma",
+        "Kidariras"
+      ],
+      "Badegadam": [
+        "Badegadam",
+        "Chhote Gadam",
+        "Pratapgiri"
+      ],
+      "Badegudra": [
+        "Badegudra"
+      ],
+      "Badelakhapal": [
+        "Badelakhapal",
+        "Badelekhapal"
+      ],
+      "Benglur": [
+        "Bengloor",
+        "Benglur"
+      ],
+      "Bhusaras": [
+        "Bhusaras"
+      ],
+      "Chhotebedma": [
+        "Chhotebedma"
+      ],
+      "Chhotegudra": [
+        "Chhotegudra"
+      ],
+      "Chhotelakhapal": [
+        "Chhotelakhapal"
+      ],
+      "Chikpal": [
+        "Chikpal",
+        "Munaga"
+      ],
+      "Dhanikarka": [
+        "Burdikarka",
+        "Dhanikarka",
+        "Duwalikarka"
+      ],
+      "Dhudhiras": [
+        "Dhudhiras",
+        "Dudhiras"
+      ],
+      "Duwalikarka": [
+        "Duwalikarka"
+      ],
+      "Edpal": [
+        "Adpal",
+        "Dodpal",
+        "Dudhiras",
+        "Edpal"
+      ],
+      "Gatam": [
+        "Gatam"
+      ],
+      "Gudse": [
+        "Gudase",
+        "Gudse"
+      ],
+      "Jangampal": [
+        "Chhote Lakhapal",
+        "Jangampal"
+      ],
+      "Katekalyan": [
+        "Katekalyan",
+        "Lakharas"
+      ],
+      "Koriras": [
+        "Chhote Bedma",
+        "Koriras"
+      ],
+      "Maharakarka": [
+        "Chhotehadma Munda",
+        "Maharakarka",
+        "Mahrakarka"
+      ],
+      "Marjum": [
+        "Marjum"
+      ],
+      "Mathadi": [
+        "Mathadi"
+      ],
+      "Mokhpal": [
+        "Mokhpal"
+      ],
+      "Nadenar": [
+        "Nadenar"
+      ],
+      "Nayanar": [
+        "Nayanar"
+      ],
+      "Paknachua": [
+        "Paknachua"
+      ],
+      "Parcheli": [
+        "Nadenar",
+        "Parcheli"
+      ],
+      "Pratapgiri": [
+        "Pratapgiri"
+      ],
+      "Surnar": [
+        "Surnar"
+      ],
+      "Telam": [
+        "Telam"
+      ],
+      "Tetam": [
+        "Kodaripal",
+        "Nayanar",
+        "Tetam"
+      ],
+      "Tumakpal": [
+        "Tumakpal",
+        "Tumkpal"
+      ]
+    },
+    "villages": [
+      "Adpal",
+      "Atepal",
+      "Bade Bedma",
+      "Badebedma",
+      "Badegadam",
+      "Badegudra",
+      "Badelakhapal",
+      "Badelekhapal",
+      "Bengloor",
+      "Benglur",
+      "Bhusaras",
+      "Burdikarka",
+      "Chhote Bedma",
+      "Chhote Gadam",
+      "Chhote Lakhapal",
+      "Chhotebedma",
+      "Chhotegudra",
+      "Chhotehadma Munda",
+      "Chhotelakhapal",
+      "Chikpal",
+      "Dhanikarka",
+      "Dhudhiras",
+      "Dodpal",
+      "Dudhiras",
+      "Duwalikarka",
+      "Edpal",
+      "Gatam",
+      "Gudase",
+      "Gudse",
+      "Jangampal",
+      "Jihakodta",
+      "Katekalyan",
+      "Kidariras",
+      "Kodaripal",
+      "Koriras",
+      "Lakharas",
+      "Maharakarka",
+      "Mahrakarka",
+      "Marjum",
+      "Mathadi",
+      "Mokhpal",
+      "Munaga",
+      "Nadenar",
+      "Nayanar",
+      "Paknachua",
+      "Parcheli",
+      "Pratapgiri",
+      "Surnar",
+      "Telam",
+      "Tetam",
+      "Tumakpal",
+      "Tumkpal"
+    ]
+  },
+  "KUAKONDA": {
+    "name": "कुआकोंडा (Kuakonda)",
+    "panchayats": {
+      "Aranpur": [
+        "Acheli",
+        "Aranpur",
+        "Mendpal"
+      ],
+      "Arbe": [
+        "Arbe"
+      ],
+      "Bade Hadma Munda": [
+        "Bade Hadma Munda"
+      ],
+      "Burgum": [
+        "Burgum"
+      ],
+      "Cholnar": [
+        "Cholnar"
+      ],
+      "Gadhmiri": [
+        "Gadhmiri"
+      ],
+      "Gongpal": [
+        "Bade Hadmamunda",
+        "Gongpal"
+      ],
+      "Gumiyapal": [
+        "Aalnar",
+        "Bengpal",
+        "Gumiyapal"
+      ],
+      "Halbaras": [
+        "Halbaras"
+      ],
+      "Hiroli": [
+        "Hiroli",
+        "Lawa",
+        "Pirnar"
+      ],
+      "Hitawar": [
+        "Hitawar"
+      ],
+      "Jabeli": [
+        "Jabeli"
+      ],
+      "Kadampal": [
+        "Kadampal"
+      ],
+      "Kalepal": [
+        "Kalepal"
+      ],
+      "Khuntepal": [
+        "Khuntepal",
+        "Khutepal"
+      ],
+      "Kirandulnp": [
+        "Kirandulnp"
+      ],
+      "Kodenar": [
+        "Kodenar"
+      ],
+      "Kutrem": [
+        "Kutrem"
+      ],
+      "Kuwakonda": [
+        "Kuakonda",
+        "Kuwakonda"
+      ],
+      "Madadi": [
+        "Madadi",
+        "Perpa"
+      ],
+      "Madhkamiras": [
+        "Madhkamiras"
+      ],
+      "Maharahaurnar": [
+        "Doriras",
+        "Lendra",
+        "Maharahaurnar",
+        "Mahrahaurnar",
+        "Penta"
+      ],
+      "Mailawada": [
+        "Mailawada"
+      ],
+      "Muler": [
+        "Muler"
+      ],
+      "Nahadi": [
+        "Kakadi",
+        "Muler",
+        "Nahadi"
+      ],
+      "Nakulnar": [
+        "Nakulnar"
+      ],
+      "Neelavaya": [
+        "Neelavaya",
+        "Nilawaya"
+      ],
+      "Palnar": [
+        "Palnar"
+      ],
+      "Phulpad": [
+        "Fulpad",
+        "Phulpad"
+      ],
+      "Potali": [
+        "Potali"
+      ],
+      "Reganar": [
+        "Reganar",
+        "Renganar"
+      ],
+      "Revali": [
+        "Barrem",
+        "Revali",
+        "Rewali"
+      ],
+      "Samalwar": [
+        "Madkamiras",
+        "Samalwar"
+      ],
+      "Sameli": [
+        "Madenda",
+        "Sameli"
+      ],
+      "Shyamgiri": [
+        "Samgiri",
+        "Shyamgiri"
+      ],
+      "Taneli": [
+        "Pedka",
+        "Taneli"
+      ],
+      "Tikanpal": [
+        "Tikanpal"
+      ]
+    },
+    "villages": [
+      "Aalnar",
+      "Acheli",
+      "Aranpur",
+      "Arbe",
+      "Bade Hadma Munda",
+      "Bade Hadmamunda",
+      "Barrem",
+      "Bengpal",
+      "Burgum",
+      "Cholnar",
+      "Doriras",
+      "Fulpad",
+      "Gadhmiri",
+      "Gongpal",
+      "Gumiyapal",
+      "Halbaras",
+      "Hiroli",
+      "Hitawar",
+      "Jabeli",
+      "Kadampal",
+      "Kakadi",
+      "Kalepal",
+      "Khuntepal",
+      "Khutepal",
+      "Kirandulnp",
+      "Kodenar",
+      "Kuakonda",
+      "Kutrem",
+      "Kuwakonda",
+      "Lawa",
+      "Lendra",
+      "Madadi",
+      "Madenda",
+      "Madhkamiras",
+      "Madkamiras",
+      "Maharahaurnar",
+      "Mahrahaurnar",
+      "Mailawada",
+      "Mendpal",
+      "Muler",
+      "Nahadi",
+      "Nakulnar",
+      "Neelavaya",
+      "Nilawaya",
+      "Palnar",
+      "Pedka",
+      "Penta",
+      "Perpa",
+      "Phulpad",
+      "Pirnar",
+      "Potali",
+      "Reganar",
+      "Renganar",
+      "Revali",
+      "Rewali",
+      "Samalwar",
+      "Sameli",
+      "Samgiri",
+      "Shyamgiri",
+      "Taneli",
+      "Tikanpal"
+    ]
+  }
+}
 };
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = REAL_DATABASE;
+}
+if (typeof window !== 'undefined') {
+  window.REAL_DATABASE = REAL_DATABASE;
 }

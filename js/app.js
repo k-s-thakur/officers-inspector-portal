@@ -16,6 +16,7 @@ let state = {
   vet_centers: [],
   inspections: [],
   physical_projects: [],
+  hierarchy: {},
   drafts: {}
 };
 
@@ -32,25 +33,136 @@ let officerChart = null;
 // Form Auto-Save Timer
 let autoSaveInterval = null;
 
-// DOM Initialization
-document.addEventListener('DOMContentLoaded', () => {
+// Helper: Normalize block name to standard key (fuzzy & multilingual)
+function getNormalizedBlockKey(blockStr) {
+  if (!blockStr) return "";
+  const b = blockStr.toString().toUpperCase().replace(/\s+/g, '');
+  if (b.includes("DANT") || b.includes("दंतेवा")) return "DANTEWADA";
+  if (b.includes("GEED") || b.includes("गीद") || b.includes("गीड")) return "GEEDAM";
+  if (b.includes("KATE") || b.includes("कटेक")) return "KATEKALYAN";
+  if (b.includes("KUA") || b.includes("KUWA") || b.includes("कुआ") || b.includes("कुंआ") || b.includes("कुवा")) return "KUAKONDA";
+  return "";
+}
+
+// Resilient hierarchy source getter
+function getHierarchySource() {
+  if (state.hierarchy && Object.keys(state.hierarchy).length > 0) {
+    return state.hierarchy;
+  }
+  if (typeof REAL_DATABASE !== 'undefined' && REAL_DATABASE && REAL_DATABASE.hierarchy) {
+    return REAL_DATABASE.hierarchy;
+  }
+  if (typeof window !== 'undefined' && window.REAL_DATABASE && window.REAL_DATABASE.hierarchy) {
+    return window.REAL_DATABASE.hierarchy;
+  }
+  return {};
+}
+
+// Helper: Populate Location Dropdowns (Gram Panchayat & Village)
+function populateLocationSelects(blockVal, gpSelectId, villageSelectId, selectedGp = "", selectedVillage = "") {
+  const gpSelect = document.getElementById(gpSelectId);
+  const villageSelect = document.getElementById(villageSelectId);
+  if (!gpSelect || !villageSelect) return;
+  
+  const normBlock = getNormalizedBlockKey(blockVal);
+  const hierarchySource = getHierarchySource();
+  const blockData = normBlock ? hierarchySource[normBlock] : null;
+  
+  gpSelect.innerHTML = '<option value="">सभी ग्राम पंचायत (All GPs)</option>';
+  villageSelect.innerHTML = '<option value="">सभी ग्राम (All Villages)</option>';
+  
+  if (blockData && blockData.panchayats) {
+    const gpList = Object.keys(blockData.panchayats).sort((a, b) => a.localeCompare(b));
+    gpList.forEach(gp => {
+      const opt = document.createElement('option');
+      opt.value = gp;
+      opt.innerText = gp;
+      if (selectedGp && (selectedGp.toLowerCase() === gp.toLowerCase() || selectedGp === gp)) {
+        opt.selected = true;
+      }
+      gpSelect.appendChild(opt);
+    });
+    
+    let villageList = [];
+    if (selectedGp) {
+      const matchedKey = Object.keys(blockData.panchayats).find(k => k.toLowerCase() === selectedGp.toLowerCase());
+      if (matchedKey && blockData.panchayats[matchedKey] && blockData.panchayats[matchedKey].length > 0) {
+        villageList = blockData.panchayats[matchedKey];
+      }
+    }
+    if (!villageList || villageList.length === 0) {
+      villageList = blockData.villages || [];
+    }
+    
+    const uniqueVillages = Array.from(new Set(villageList)).sort((a, b) => a.localeCompare(b));
+    uniqueVillages.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.innerText = v;
+      if (selectedVillage && (selectedVillage.toLowerCase() === v.toLowerCase() || selectedVillage === v)) {
+        opt.selected = true;
+      }
+      villageSelect.appendChild(opt);
+    });
+  }
+}
+
+// Immediate initial state seed from REAL_DATABASE
+if (typeof REAL_DATABASE !== 'undefined' && REAL_DATABASE && REAL_DATABASE.hierarchy) {
+  state.hierarchy = REAL_DATABASE.hierarchy;
+}
+
+// Full Application Initialization
+function initApp() {
   initializeDatabase();
   setupNavigation();
   populateHeaderOfficerSelect();
   switchTab('dashboard');
   
-  // Set current date on New Inspection Form
+  // Set current date on New Inspection Form in DD/MM/YYYY
   const dateInput = document.getElementById('form-input-date');
   if (dateInput) {
-    dateInput.value = new Date().toISOString().split('T')[0];
+    dateInput.value = getTodayDateDDMMYYYY();
+    dateInput.addEventListener('blur', () => {
+      const val = dateInput.value.trim();
+      if (val) {
+        dateInput.value = formatDateString(val);
+      }
+    });
   }
+  
+  // Load cached officer profile if available
+  loadCachedOfficerInfo();
   
   // Setup auto-save drafts checking
   setupDraftAutoSave();
   
+  // Wire change listeners directly on location selects
+  const formBlock = document.getElementById('form-select-block');
+  if (formBlock) {
+    formBlock.removeEventListener('change', onFormBlockChanged);
+    formBlock.addEventListener('change', onFormBlockChanged);
+  }
+  const formGp = document.getElementById('form-select-panchayat');
+  if (formGp) {
+    formGp.removeEventListener('change', onFormPanchayatChanged);
+    formGp.addEventListener('change', onFormPanchayatChanged);
+  }
+  const formVillage = document.getElementById('form-select-village');
+  if (formVillage) {
+    formVillage.removeEventListener('change', onFormVillageChanged);
+    formVillage.addEventListener('change', onFormVillageChanged);
+  }
+  
   // Fetch dynamic database from Google Sheets API
   fetchDatabase();
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
 
 // 1. Initialize State from Compiled database.js & LocalStorage
 function initializeDatabase() {
@@ -60,6 +172,7 @@ function initializeDatabase() {
     state.anganwadis = [...REAL_DATABASE.anganwadis];
     state.health_centers = [...REAL_DATABASE.health_centers];
     state.vet_centers = [...REAL_DATABASE.vet_centers];
+    state.hierarchy = REAL_DATABASE.hierarchy ? JSON.parse(JSON.stringify(REAL_DATABASE.hierarchy)) : {};
     
     // Load custom inspections from localStorage & merge
     let customInsps = [];
@@ -215,16 +328,17 @@ async function fetchDatabase() {
     
     // Redraw lists, dashboards, and maps if they are active
     populateHeaderOfficerSelect();
-    updateDashboardStats();
-    renderInspectionsList();
-    renderPhysicalProjectsGrid();
+    if (typeof updateDashboardMetrics === 'function') updateDashboardMetrics();
+    if (typeof renderReportsTable === 'function') renderReportsTable();
+    if (typeof renderPhysicalProjectsGrid === 'function') renderPhysicalProjectsGrid();
     
     // If maps libraries are loaded and elements exist, rebuild map
     if (typeof L !== 'undefined') {
       try {
-        initLeafletMaps();
+        if (typeof renderMapMarkers === 'function') renderMapMarkers();
+        if (typeof initDashboardMap === 'function' && document.getElementById('dashboard-mini-map')) initDashboardMap();
       } catch (me) {
-        console.error("Leaflet rebuild map error:", me);
+        console.warn("Leaflet rebuild map error:", me);
       }
     }
     
@@ -369,7 +483,7 @@ function switchTab(tabId) {
     'dashboard': 'शासकीय निरीक्षण एवं अनुश्रवण प्रणाली - अधिकारी डैशबोर्ड',
     'map': 'जीआईएस भौगोलिक निरीक्षण मानचित्र (GIS Map View)',
     'new-inspection': 'आकस्मिक निरीक्षण फॉर्म (New Inspection Entry)',
-    'physical': 'भौतिक प्रगति एवं निर्माण कार्यों का अनुश्रवण (Construction Progress)',
+    'physical': 'निरीक्षण विज़िट समय-रेखा मैट्रिक्स (Inspection Visits & Timeline Matrix)',
     'reports': 'निरीक्षण इतिहास लॉग एवं प्रतिवेदन (Inspection Reports & Export)',
     'master': 'जिला मास्टर डेटाबेस एक्सप्लोरर (Master Data Explorer)'
   };
@@ -382,8 +496,15 @@ function switchTab(tabId) {
     initDashboardMap();
   } else if (tabId === 'map') {
     initGISMap();
+  } else if (tabId === 'new-inspection') {
+    loadCachedOfficerInfo();
+    const dateInput = document.getElementById('form-input-date');
+    if (dateInput && !dateInput.value) {
+      dateInput.value = getTodayDateDDMMYYYY();
+    }
   } else if (tabId === 'physical') {
-    renderPhysicalProjectsGrid();
+    populateTimelineFilters();
+    renderInspectionTimelineTable();
   } else if (tabId === 'reports') {
     populateReportsFilters();
     renderReportsTable();
@@ -392,7 +513,7 @@ function switchTab(tabId) {
   }
   
   // Update print date/time stamp
-  document.getElementById('print-timestamp').innerText = `प्रिंट रिपोर्ट तिथि: ${new Date().toLocaleDateString('hi-IN')} | समय: ${new Date().toLocaleTimeString('hi-IN')}`;
+  document.getElementById('print-timestamp').innerText = `प्रिंट रिपोर्ट तिथि: ${formatDateString(new Date())} | समय: ${new Date().toLocaleTimeString('hi-IN')}`;
 }
 
 function setupNavigation() {
@@ -492,6 +613,7 @@ function updateDashboardMetrics() {
 }
 
 function initDashboardCharts() {
+  if (typeof Chart === 'undefined') return;
   // Chart 1: Department-wise Inspections Count
   const deptCounts = {1: 0, 2: 0, 3: 0, 4: 0, 6: 0};
   state.inspections.forEach(i => {
@@ -647,7 +769,7 @@ function initDashboardCharts() {
             <i class="fa-solid ${badge.icon}"></i>
           </div>
           <div class="flex-1 min-w-0">
-            <h5 class="text-xs font-bold text-slate-800 truncate">${i.facilityName}</h5>
+            <h5 class="text-xs font-bold text-slate-800 truncate">${i.facilityName || i.village || 'निरीक्षण'}</h5>
             <p class="text-[10px] text-slate-450 mt-0.5 truncate font-medium">${i.village} (${i.block.replace(' (221622)', '').replace(' (221608)', '').replace(' (221615)', '').replace(' (221631)', '')})</p>
             <div class="flex items-center space-x-2 mt-1.5 text-[9px] text-slate-400 font-semibold">
               <span>${i.officerName.replace('Sh ', '')}</span>
@@ -663,6 +785,7 @@ function initDashboardCharts() {
 }
 
 function initDashboardMap() {
+  if (typeof L === 'undefined') return;
   if (dashboardMap) return; // already initialized
   
   dashboardMap = L.map('dashboard-mini-map', {
@@ -701,6 +824,7 @@ function initDashboardMap() {
 
 // 5. GIS Map view
 function initGISMap() {
+  if (typeof L === 'undefined') return;
   if (mainMap) {
     // invalidate size to prevent rendering bugs on hidden tabs
     setTimeout(() => mainMap.invalidateSize(), 100);
@@ -729,8 +853,12 @@ function renderMapMarkers() {
   });
   
   const blockFilter = document.getElementById('map-block-filter').value;
-  const searchVal = document.getElementById('map-search').value.toLowerCase();
+  const gpFilter = document.getElementById('map-panchayat-filter') ? document.getElementById('map-panchayat-filter').value : "";
+  const villageFilter = document.getElementById('map-village-filter') ? document.getElementById('map-village-filter').value : "";
+  const searchVal = document.getElementById('map-search').value.toLowerCase().trim();
   const inspectionFilter = document.getElementById('map-inspection-filter').value;
+  
+  const normSelectedBlock = getNormalizedBlockKey(blockFilter);
   
   let listToRender = [];
   
@@ -767,16 +895,41 @@ function renderMapMarkers() {
     });
   }
   
-  // Apply block & search filters
+  // Apply block, GP, village, & search filters
   let filtered = listToRender.filter(item => {
     // block filter
-    if (blockFilter && !item.block.toUpperCase().includes(blockFilter)) return false;
+    if (normSelectedBlock) {
+      const itemBlock = getNormalizedBlockKey(item.block);
+      if (itemBlock !== normSelectedBlock) return false;
+    }
+    
+    // Gram Panchayat filter
+    if (gpFilter) {
+      const itemGP = (item.panchayat || '').toUpperCase();
+      let matchGP = itemGP === gpFilter || itemGP.includes(gpFilter);
+      if (!matchGP && normSelectedBlock && state.hierarchy[normSelectedBlock]?.panchayats[gpFilter]) {
+        const gpVillages = state.hierarchy[normSelectedBlock].panchayats[gpFilter].map(v => v.toLowerCase());
+        if (item.village && gpVillages.includes(item.village.toLowerCase())) {
+          matchGP = true;
+        }
+      }
+      if (!matchGP) return false;
+    }
+    
+    // Village filter
+    if (villageFilter) {
+      const itemVillage = (item.village || '').toLowerCase();
+      if (!itemVillage.includes(villageFilter.toLowerCase()) && !item.displayName.toLowerCase().includes(villageFilter.toLowerCase())) {
+        return false;
+      }
+    }
     
     // search filter
     if (searchVal) {
       const matchName = item.displayName.toLowerCase().includes(searchVal);
       const matchVillage = item.village && item.village.toLowerCase().includes(searchVal);
-      if (!matchName && !matchVillage) return false;
+      const matchGP = item.panchayat && item.panchayat.toLowerCase().includes(searchVal);
+      if (!matchName && !matchVillage && !matchGP) return false;
     }
     
     // inspection history filter
@@ -853,6 +1006,43 @@ function filterMapMarkers() {
   renderMapMarkers();
 }
 
+function onMapBlockChanged() {
+  const blockVal = document.getElementById('map-block-filter').value;
+  populateLocationSelects(blockVal, 'map-panchayat-filter', 'map-village-filter');
+  filterMapMarkers();
+}
+
+function onMapPanchayatChanged() {
+  const blockVal = document.getElementById('map-block-filter').value;
+  const gpVal = document.getElementById('map-panchayat-filter').value;
+  const villageSelect = document.getElementById('map-village-filter');
+  
+  const normBlock = getNormalizedBlockKey(blockVal);
+  const hierarchySource = getHierarchySource();
+  const blockData = normBlock ? hierarchySource[normBlock] : null;
+  if (blockData && villageSelect) {
+    villageSelect.innerHTML = '<option value="">सभी ग्राम (All Villages)</option>';
+    let vList = [];
+    if (gpVal && blockData.panchayats) {
+      const matchedKey = Object.keys(blockData.panchayats).find(k => k.toLowerCase() === gpVal.toLowerCase());
+      if (matchedKey && blockData.panchayats[matchedKey] && blockData.panchayats[matchedKey].length > 0) {
+        vList = blockData.panchayats[matchedKey];
+      }
+    }
+    if (!vList || vList.length === 0) {
+      vList = blockData.villages || [];
+    }
+    const uniqueVillages = Array.from(new Set(vList)).sort((a, b) => a.localeCompare(b));
+    uniqueVillages.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.innerText = v;
+      villageSelect.appendChild(opt);
+    });
+  }
+  filterMapMarkers();
+}
+
 function triggerNewInspectionFromMap(category, name, block, village, lat, lng) {
   // Map category to department ID
   const depts = {'school': 1, 'health': 2, 'anganwadi': 3, 'veterinary': 4};
@@ -865,18 +1055,22 @@ function triggerNewInspectionFromMap(category, name, block, village, lat, lng) {
   document.getElementById('form-select-dept').value = deptId;
   onFormDeptChanged(deptId);
   
-  // We need to set block properly
-  // Let's strip brackets if any or match option
   const blockSelect = document.getElementById('form-select-block');
   for (let i = 0; i < blockSelect.options.length; i++) {
     if (block.toUpperCase().includes(blockSelect.options[i].value)) {
       blockSelect.value = blockSelect.options[i].value;
+      onFormBlockChanged();
       break;
     }
   }
   
+  const villageSelect = document.getElementById('form-select-village');
+  if (villageSelect) {
+    villageSelect.value = village;
+  }
   document.getElementById('form-input-village').value = village;
-  document.getElementById('form-input-facility').value = name;
+  const facInput = document.getElementById('form-input-facility');
+  if (facInput) facInput.value = name;
   document.getElementById('form-gps-lat').value = lat;
   document.getElementById('form-gps-lng').value = lng;
 }
@@ -903,87 +1097,192 @@ function onFormDeptChanged(val) {
   loadDraftForDepartment(deptId);
 }
 
-function showFacilitySuggestions(query) {
-  const deptId = parseInt(document.getElementById('form-select-dept').value);
-  const block = document.getElementById('form-select-block').value;
-  const listEl = document.getElementById('facility-autocomplete-list');
+// Officer Profile Persistence & Auto-fill Logic
+function loadCachedOfficerInfo() {
+  const saved = localStorage.getItem('officers_inspector_portal_officer_info');
+  const nameInput = document.getElementById('form-officer-name');
+  const desigInput = document.getElementById('form-officer-designation');
+  const phoneInput = document.getElementById('form-officer-phone');
+  const previewCard = document.getElementById('officer-preview-card');
+  const cachedBadge = document.getElementById('officer-cached-badge');
+  const inputFields = document.getElementById('officer-input-fields');
   
-  if (!deptId || query.length < 2) {
-    listEl.classList.add('hidden');
-    return;
-  }
+  if (!nameInput || !desigInput || !phoneInput) return;
   
-  // Get corresponding facility lists
-  let list = [];
-  if (deptId === 1) list = state.schools;
-  else if (deptId === 2) list = state.health_centers;
-  else if (deptId === 3) list = state.anganwadis;
-  else if (deptId === 4) list = state.vet_centers;
-  
-  // Filter list by block (if selected) and query
-  const filtered = list.filter(item => {
-    if (block && !item.block.toUpperCase().includes(block)) return false;
-    return item.name.toLowerCase().includes(query.toLowerCase());
-  }).slice(0, 10);
-  
-  if (filtered.length === 0) {
-    listEl.classList.add('hidden');
-    return;
-  }
-  
-  listEl.innerHTML = "";
-  filtered.forEach(item => {
-    const div = document.createElement('div');
-    div.className = "autocomplete-suggestion font-semibold text-slate-700 hover:bg-slate-50";
-    div.innerText = `${item.name} (${item.village})`;
-    div.onclick = () => {
-      document.getElementById('form-input-facility').value = item.name;
-      document.getElementById('form-input-village').value = item.village;
-      
-      // Auto set block dropdown
-      const blockSelect = document.getElementById('form-select-block');
-      for (let i = 0; i < blockSelect.options.length; i++) {
-        if (item.block.toUpperCase().includes(blockSelect.options[i].value)) {
-          blockSelect.value = blockSelect.options[i].value;
-          break;
+  if (saved) {
+    try {
+      const data = JSON.parse(saved);
+      if (data && data.name && data.name.trim()) {
+        nameInput.value = data.name.trim();
+        desigInput.value = (data.designation || "").trim();
+        phoneInput.value = (data.phone || "").trim();
+        
+        const previewName = document.getElementById('officer-preview-name');
+        const previewDesig = document.getElementById('officer-preview-designation');
+        const previewPhone = document.getElementById('officer-preview-phone');
+        
+        if (previewName) previewName.innerText = data.name.trim();
+        if (previewDesig) previewDesig.innerText = (data.designation && data.designation.trim()) ? data.designation.trim() : "निरीक्षक";
+        if (previewPhone) previewPhone.innerText = (data.phone && data.phone.trim()) ? data.phone.trim() : "उपलब्ध नहीं";
+        
+        if (previewCard) previewCard.classList.remove('hidden');
+        if (cachedBadge) {
+          cachedBadge.classList.remove('hidden');
+          cachedBadge.classList.add('flex');
         }
+        if (inputFields) inputFields.classList.add('hidden');
+        return;
       }
-      
-      // Set GPS
-      if (item.latitude) {
-        document.getElementById('form-gps-lat').value = item.latitude;
-        document.getElementById('form-gps-lng').value = item.longitude;
-      } else {
-        document.getElementById('form-gps-lat').value = "";
-        document.getElementById('form-gps-lng').value = "";
-      }
-      
-      listEl.classList.add('hidden');
-      
-      // trigger auto save draft
-      saveCurrentFormDraft();
-    };
-    listEl.appendChild(div);
-  });
+    } catch (e) {
+      console.error("Error loading cached officer profile", e);
+    }
+  }
   
-  listEl.classList.remove('hidden');
+  // If no cache or empty
+  if (previewCard) previewCard.classList.add('hidden');
+  if (cachedBadge) {
+    cachedBadge.classList.add('hidden');
+    cachedBadge.classList.remove('flex');
+  }
+  if (inputFields) inputFields.classList.remove('hidden');
 }
 
-// Close autocomplete suggestions click outside
-document.addEventListener('click', (e) => {
-  const listEl = document.getElementById('facility-autocomplete-list');
-  const inputEl = document.getElementById('form-input-facility');
-  if (listEl && inputEl && !listEl.contains(e.target) && e.target !== inputEl) {
-    listEl.classList.add('hidden');
+function saveOfficerProfile(name, designation, phone) {
+  if (!name || !name.trim()) return;
+  const profile = {
+    name: name.trim(),
+    designation: designation ? designation.trim() : "",
+    phone: phone ? phone.trim() : ""
+  };
+  localStorage.setItem('officers_inspector_portal_officer_info', JSON.stringify(profile));
+}
+
+function toggleOfficerEditMode(showEdit) {
+  const previewCard = document.getElementById('officer-preview-card');
+  const inputFields = document.getElementById('officer-input-fields');
+  const nameInput = document.getElementById('form-officer-name');
+  
+  if (showEdit) {
+    if (previewCard) previewCard.classList.add('hidden');
+    if (inputFields) inputFields.classList.remove('hidden');
+    if (nameInput) nameInput.focus();
+  } else {
+    loadCachedOfficerInfo();
   }
-});
+}
 
 function onFormBlockChanged() {
-  // Clear facility name and village when block changes to prevent mismatch
-  document.getElementById('form-input-facility').value = "";
-  document.getElementById('form-input-village').value = "";
-  document.getElementById('form-gps-lat').value = "";
-  document.getElementById('form-gps-lng').value = "";
+  const blockEl = document.getElementById('form-select-block');
+  const blockVal = blockEl ? blockEl.value : "";
+  const gpSelect = document.getElementById('form-select-panchayat');
+  const villageSelect = document.getElementById('form-select-village');
+  
+  const villageInput = document.getElementById('form-input-village');
+  if (villageInput) villageInput.value = "";
+  const facEl = document.getElementById('form-input-facility');
+  if (facEl) facEl.value = "";
+  const latInput = document.getElementById('form-gps-lat');
+  if (latInput) latInput.value = "";
+  const lngInput = document.getElementById('form-gps-lng');
+  if (lngInput) lngInput.value = "";
+  
+  if (!blockVal) {
+    if (gpSelect) {
+      gpSelect.innerHTML = '<option value="">-- पहले विकासखंड चुनें (Select Block first) --</option>';
+    }
+    if (villageSelect) {
+      villageSelect.innerHTML = '<option value="">-- पहले ग्राम पंचायत चुनें (Select GP first) --</option>';
+    }
+    try { saveCurrentFormDraft(); } catch(e){}
+    return;
+  }
+  
+  const normBlock = getNormalizedBlockKey(blockVal);
+  const hierarchySource = getHierarchySource();
+  const blockData = normBlock ? hierarchySource[normBlock] : null;
+  
+  if (gpSelect) {
+    gpSelect.innerHTML = '<option value="">-- ग्राम पंचायत का चयन करें (Select GP) --</option>';
+    if (blockData && blockData.panchayats) {
+      const gpList = Object.keys(blockData.panchayats).sort((a, b) => a.localeCompare(b));
+      gpList.forEach(gp => {
+        const opt = document.createElement('option');
+        opt.value = gp;
+        opt.innerText = gp;
+        gpSelect.appendChild(opt);
+      });
+    }
+  }
+  
+  if (villageSelect) {
+    villageSelect.innerHTML = '<option value="">-- पहले ग्राम पंचायत चुनें (Select GP first) --</option>';
+  }
+  
+  try { saveCurrentFormDraft(); } catch(e){}
+}
+
+function onFormPanchayatChanged() {
+  const blockEl = document.getElementById('form-select-block');
+  const blockVal = blockEl ? blockEl.value : "";
+  const gpSelect = document.getElementById('form-select-panchayat');
+  const gpVal = gpSelect ? gpSelect.value : "";
+  const villageSelect = document.getElementById('form-select-village');
+  
+  const villageInput = document.getElementById('form-input-village');
+  if (villageInput) villageInput.value = "";
+  const facEl = document.getElementById('form-input-facility');
+  if (facEl) facEl.value = "";
+  
+  if (!gpVal) {
+    if (villageSelect) {
+      villageSelect.innerHTML = '<option value="">-- पहले ग्राम पंचायत चुनें (Select GP first) --</option>';
+    }
+    try { saveCurrentFormDraft(); } catch(e){}
+    return;
+  }
+  
+  const normBlock = getNormalizedBlockKey(blockVal);
+  const hierarchySource = getHierarchySource();
+  const blockData = normBlock ? hierarchySource[normBlock] : null;
+  
+  if (villageSelect) {
+    villageSelect.innerHTML = '<option value="">-- ग्राम / गाँव का चयन करें (Select Village) --</option>';
+    
+    let vList = [];
+    if (blockData && blockData.panchayats) {
+      const matchedKey = Object.keys(blockData.panchayats).find(k => k.toLowerCase() === gpVal.toLowerCase());
+      if (matchedKey && blockData.panchayats[matchedKey] && blockData.panchayats[matchedKey].length > 0) {
+        vList = blockData.panchayats[matchedKey];
+      }
+    }
+    
+    if (!vList || vList.length === 0) {
+      vList = [gpVal];
+    }
+    
+    const uniqueVillages = Array.from(new Set(vList)).sort((a, b) => a.localeCompare(b));
+    uniqueVillages.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.innerText = v;
+      villageSelect.appendChild(opt);
+    });
+    
+    if (uniqueVillages.length === 1) {
+      villageSelect.value = uniqueVillages[0];
+      if (villageInput) villageInput.value = uniqueVillages[0];
+    }
+  }
+  
+  try { saveCurrentFormDraft(); } catch(e){}
+}
+
+function onFormVillageChanged() {
+  const villageSelect = document.getElementById('form-select-village');
+  const villageVal = villageSelect ? villageSelect.value : "";
+  const villageInput = document.getElementById('form-input-village');
+  if (villageInput) villageInput.value = villageVal;
+  try { saveCurrentFormDraft(); } catch(e){}
 }
 
 function captureGPS() {
@@ -1099,67 +1398,123 @@ function previewImage(input, previewBoxId) {
 // 7. Dynamic Form Drafts LocalStorage Autosave
 function setupDraftAutoSave() {
   // Listen to input changes in core form fields
-  const coreFields = ['form-select-dept', 'form-select-block', 'form-input-village', 'form-input-facility', 'form-gps-lat', 'form-gps-lng', 'form-input-date', 'form-input-remarks'];
+  const coreFields = ['form-officer-name', 'form-officer-designation', 'form-officer-phone', 'form-select-dept', 'form-select-block', 'form-input-village', 'form-gps-lat', 'form-gps-lng', 'form-input-date', 'form-input-remarks'];
   coreFields.forEach(fid => {
     const el = document.getElementById(fid);
     if (el) {
-      el.addEventListener('input', () => saveCurrentFormDraft());
+      el.addEventListener('input', () => {
+        saveCurrentFormDraft();
+        // Also update cached officer in real-time when typing officer info
+        if (fid.startsWith('form-officer-')) {
+          const oName = document.getElementById('form-officer-name')?.value.trim() || "";
+          const oDesig = document.getElementById('form-officer-designation')?.value.trim() || "";
+          const oPhone = document.getElementById('form-officer-phone')?.value.trim() || "";
+          if (oName) {
+            saveOfficerProfile(oName, oDesig, oPhone);
+          }
+        }
+      });
     }
   });
 }
 
 function saveCurrentFormDraft() {
-  const deptId = document.getElementById('form-select-dept').value;
-  if (!deptId) return;
-  
-  // Collect values
-  const payload = {
-    deptId: deptId,
-    block: document.getElementById('form-select-block').value,
-    village: document.getElementById('form-input-village').value,
-    facilityName: document.getElementById('form-input-facility').value,
-    lat: document.getElementById('form-gps-lat').value,
-    lng: document.getElementById('form-gps-lng').value,
-    date: document.getElementById('form-input-date').value,
-    remarks: document.getElementById('form-input-remarks').value,
-    responses: {}
-  };
-  
-  // Read dynamic responses
-  const parameters = getParametersByDepartmentId(parseInt(deptId));
-  parameters.forEach(p => {
-    const field = document.getElementById(`param_field_${p.id}`);
-    if (field) {
-      payload.responses[p.id] = field.value;
+  try {
+    const deptEl = document.getElementById('form-select-dept');
+    const deptId = deptEl ? deptEl.value : "";
+    if (!deptId) return;
+    
+    const villageVal = document.getElementById('form-select-village')?.value || document.getElementById('form-input-village')?.value || "";
+    
+    // Collect values
+    const payload = {
+      deptId: deptId,
+      officerName: document.getElementById('form-officer-name')?.value || "",
+      officerDesignation: document.getElementById('form-officer-designation')?.value || "",
+      officerPhone: document.getElementById('form-officer-phone')?.value || "",
+      block: document.getElementById('form-select-block')?.value || "",
+      panchayat: document.getElementById('form-select-panchayat')?.value || "",
+      village: villageVal,
+      facilityName: document.getElementById('form-input-facility')?.value || "",
+      lat: document.getElementById('form-gps-lat')?.value || "",
+      lng: document.getElementById('form-gps-lng')?.value || "",
+      date: document.getElementById('form-input-date')?.value || "",
+      remarks: document.getElementById('form-input-remarks')?.value || "",
+      responses: {}
+    };
+    
+    // Read dynamic responses
+    const parameters = getParametersByDepartmentId(parseInt(deptId));
+    parameters.forEach(p => {
+      const field = document.getElementById(`param_field_${p.id}`);
+      if (field) {
+        payload.responses[p.id] = field.value;
+      }
+    });
+    
+    // Write to localStorage
+    localStorage.setItem(`officers_inspector_portal_draft_${deptId}`, JSON.stringify(payload));
+    state.drafts[deptId] = payload;
+    
+    // Update status message
+    const statusEl = document.getElementById('form-draft-status');
+    if (statusEl) {
+      const time = new Date().toLocaleTimeString('hi-IN');
+      statusEl.innerText = `प्रारूप सहेजा गया (${time})`;
     }
-  });
-  
-  // Write to localStorage
-  localStorage.setItem(`officers_inspector_portal_draft_${deptId}`, JSON.stringify(payload));
-  state.drafts[deptId] = payload;
-  
-  // Update status message
-  const statusEl = document.getElementById('form-draft-status');
-  if (statusEl) {
-    const time = new Date().toLocaleTimeString('hi-IN');
-    statusEl.innerText = `प्रारूप सहेजा गया (${time})`;
+  } catch (err) {
+    console.warn("Draft save notice:", err);
   }
 }
 
 function loadDraftForDepartment(deptId) {
   const draft = state.drafts[deptId];
   if (!draft) {
-    // Clear dynamic fields
     return;
   }
   
+  // Fill officer fields if present in draft and not already populated
+  if (draft.officerName && !document.getElementById('form-officer-name').value) {
+    document.getElementById('form-officer-name').value = draft.officerName;
+    document.getElementById('form-officer-designation').value = draft.officerDesignation || "";
+    document.getElementById('form-officer-phone').value = draft.officerPhone || "";
+  }
+  
   // Fill core fields
-  document.getElementById('form-select-block').value = draft.block || "";
-  document.getElementById('form-input-village').value = draft.village || "";
-  document.getElementById('form-input-facility').value = draft.facilityName || "";
+  if (draft.block) {
+    document.getElementById('form-select-block').value = draft.block;
+    onFormBlockChanged();
+    if (draft.panchayat) {
+      const gpSelect = document.getElementById('form-select-panchayat');
+      if (gpSelect) {
+        for (let i = 0; i < gpSelect.options.length; i++) {
+          if (gpSelect.options[i].value.toLowerCase() === draft.panchayat.toLowerCase()) {
+            gpSelect.value = gpSelect.options[i].value;
+            break;
+          }
+        }
+        onFormPanchayatChanged();
+        if (draft.village) {
+          const vSelect = document.getElementById('form-select-village');
+          if (vSelect) {
+            for (let i = 0; i < vSelect.options.length; i++) {
+              if (vSelect.options[i].value.toLowerCase() === draft.village.toLowerCase()) {
+                vSelect.value = vSelect.options[i].value;
+                break;
+              }
+            }
+          }
+          document.getElementById('form-input-village').value = draft.village;
+        }
+      }
+    }
+  }
+  
+  const facEl = document.getElementById('form-input-facility');
+  if (facEl) facEl.value = draft.facilityName || "";
   document.getElementById('form-gps-lat').value = draft.lat || "";
   document.getElementById('form-gps-lng').value = draft.lng || "";
-  document.getElementById('form-input-date').value = draft.date || new Date().toISOString().split('T')[0];
+  document.getElementById('form-input-date').value = draft.date ? formatDateString(draft.date) : getTodayDateDDMMYYYY();
   document.getElementById('form-input-remarks').value = draft.remarks || "";
   
   // Fill dynamic parameters
@@ -1180,15 +1535,24 @@ function clearCurrentForm() {
   
   // Reset fields
   document.getElementById('form-select-block').value = "";
+  const gpSelect = document.getElementById('form-select-panchayat');
+  if (gpSelect) gpSelect.innerHTML = '<option value="">-- पहले विकासखंड चुनें (Select Block first) --</option>';
+  const vSelect = document.getElementById('form-select-village');
+  if (vSelect) vSelect.innerHTML = '<option value="">-- पहले ग्राम पंचायत चुनें (Select GP first) --</option>';
   document.getElementById('form-input-village').value = "";
-  document.getElementById('form-input-facility').value = "";
+  const facEl = document.getElementById('form-input-facility');
+  if (facEl) facEl.value = "";
   document.getElementById('form-gps-lat').value = "";
   document.getElementById('form-gps-lng').value = "";
+  document.getElementById('form-input-date').value = getTodayDateDDMMYYYY();
   document.getElementById('form-input-remarks').value = "";
   document.getElementById('form-file-photo').value = "";
   document.getElementById('photo-preview-box').innerHTML = '<i class="fa-solid fa-image text-xl"></i>';
   document.getElementById('form-file-action-photo').value = "";
   document.getElementById('action-photo-preview-box').innerHTML = '<i class="fa-solid fa-image text-xl"></i>';
+  
+  // Ensure cached officer details remain populated and visible
+  loadCachedOfficerInfo();
   
   if (deptId) {
     const parameters = getParametersByDepartmentId(parseInt(deptId));
@@ -1214,27 +1578,52 @@ function clearCurrentForm() {
 function handleFormSubmit(e) {
   e.preventDefault();
   
+  const officerName = document.getElementById('form-officer-name')?.value.trim() || "";
+  const officerDesignation = document.getElementById('form-officer-designation')?.value.trim() || "";
+  const officerPhone = document.getElementById('form-officer-phone')?.value.trim() || "";
+  
   const deptId = document.getElementById('form-select-dept').value;
   const block = document.getElementById('form-select-block').value;
-  const village = document.getElementById('form-input-village').value;
-  const facilityName = document.getElementById('form-input-facility').value;
+  const gp = document.getElementById('form-select-panchayat') ? document.getElementById('form-select-panchayat').value : "";
+  const village = document.getElementById('form-select-village')?.value || document.getElementById('form-input-village')?.value || "";
   const remarks = document.getElementById('form-input-remarks').value;
   const date = document.getElementById('form-input-date').value;
   
-  if (!deptId || !block || !village || !facilityName || !remarks || !date) {
+  if (!officerName || !officerDesignation || !officerPhone) {
+    showToast("error", "त्रुटि", "कृपया अधिकारी का नाम, पदनाम एवं फोन नंबर दर्ज करें!");
+    toggleOfficerEditMode(true);
+    return;
+  }
+  
+  if (!deptId || !block || !village || !remarks || !date) {
     showToast("error", "त्रुटि", "कृपया सभी अनिवार्य (*) फ़ील्ड भरें!");
     return;
   }
+  
+  // Save officer profile to cache for automatic future prefill
+  saveOfficerProfile(officerName, officerDesignation, officerPhone);
+  
+  // Dynamically register officer into state if not already present
+  let officerObj = state.officers.find(o => o.name.toLowerCase() === officerName.toLowerCase());
+  if (!officerObj) {
+    officerObj = {
+      id: "O_CUSTOM_" + Date.now(),
+      name: officerName,
+      designation: officerDesignation,
+      phone: officerPhone
+    };
+    state.officers.unshift(officerObj);
+    populateHeaderOfficerSelect();
+  }
+  state.currentOfficerId = officerObj.id;
+  const headerSelect = document.getElementById('header-officer-select');
+  if (headerSelect) headerSelect.value = officerObj.id;
   
   // Capture photo values
   const photoBox = document.getElementById('photo-preview-box');
   const actionPhotoBox = document.getElementById('action-photo-preview-box');
   const photoImg = photoBox.querySelector('img');
   const actionPhotoImg = actionPhotoBox.querySelector('img');
-  
-  // Retrieve officer name
-  const officerObj = state.officers.find(o => o.id === state.currentOfficerId);
-  const officerName = officerObj ? officerObj.name : "Unknown Officer";
   
   // Gather dynamic checklist values
   const responses = {};
@@ -1253,11 +1642,13 @@ function handleFormSubmit(e) {
     id: iid,
     departmentId: parseInt(deptId),
     block: block + " (" + getBlockCode(block) + ")",
-    panchayat: village.toUpperCase(),
+    panchayat: gp || village.toUpperCase(),
     village: village,
-    facilityName: facilityName,
+    facilityName: "",
     date: date,
     officerName: officerName,
+    officerDesignation: officerDesignation,
+    officerPhone: officerPhone,
     status: "Submitted",
     remarks: remarks,
     photo: photoImg ? photoImg.src : "",
@@ -1297,321 +1688,451 @@ function handleFormSubmit(e) {
   localStorage.removeItem(`officers_inspector_portal_draft_${deptId}`);
   delete state.drafts[deptId];
   
-  // Success Toast & Redirect to Dashboard
-  showToast("success", "सफलतापूर्वक सहेजा गया", `${facilityName} का निरीक्षण सफलतापूर्वक सहेज लिया गया है।`);
+  // Success Toast
+  const deptObj = REAL_DATABASE.departments.find(d => d.id === parseInt(deptId));
+  const deptName = deptObj ? deptObj.name : "विभाग";
+  showToast("success", "सफलतापूर्वक सहेजा गया", `${village} (${deptName}) का निरीक्षण सफलतापूर्वक सहेज लिया गया है।`);
   
-  // Clear forms inputs
+  // Clear form inputs and reload cached officer profile
   clearCurrentForm();
+  loadCachedOfficerInfo();
   
   // Switch to Dashboard
   switchTab('dashboard');
 }
 
-// 9. Physical Progress Tracker
-function renderPhysicalProjectsGrid() {
-  const grid = document.getElementById('physical-projects-grid');
-  if (!grid) return;
-  grid.innerHTML = "";
+// 9. Inspection Visits & Timeline Matrix Logic
+function populateTimelineFilters() {
+  const blockSelect = document.getElementById('timeline-block-filter');
+  if (blockSelect && blockSelect.options.length <= 1) {
+    blockSelect.innerHTML = '<option value="">सभी विकासखंड (All Blocks)</option>';
+    ['DANTEWADA', 'GEEDAM', 'KATEKALYAN', 'KUAKONDA'].forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b;
+      opt.innerText = (state.hierarchy && state.hierarchy[b]?.name) ? state.hierarchy[b].name : b;
+      blockSelect.appendChild(opt);
+    });
+  }
+}
+
+function onTimelineBlockChanged() {
+  const blockVal = document.getElementById('timeline-block-filter')?.value || '';
+  const gpSelect = document.getElementById('timeline-panchayat-filter');
+  if (!gpSelect) return;
   
-  if (state.physical_projects.length === 0) {
-    grid.innerHTML = `<div class="col-span-full py-16 text-center text-slate-400 font-bold">कोई निर्माणाधीन कार्य उपलब्ध नहीं है।</div>`;
-    return;
+  gpSelect.innerHTML = '<option value="">सभी पंचायतें (All GPs)</option>';
+  
+  const normBlock = getNormalizedBlockKey(blockVal);
+  if (normBlock && state.hierarchy && state.hierarchy[normBlock]) {
+    const gps = Object.keys(state.hierarchy[normBlock].panchayats || {}).sort();
+    gps.forEach(gp => {
+      const opt = document.createElement('option');
+      opt.value = gp;
+      opt.innerText = gp;
+      gpSelect.appendChild(opt);
+    });
   }
   
-  state.physical_projects.forEach(p => {
-    const card = document.createElement('div');
-    card.className = "bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover-card flex flex-col justify-between";
+  renderInspectionTimelineTable();
+}
+
+function onTimelinePanchayatChanged() {
+  renderInspectionTimelineTable();
+}
+
+function clearTimelineFilters() {
+  const s = document.getElementById('timeline-search');
+  if (s) s.value = "";
+  const d = document.getElementById('timeline-dept-filter');
+  if (d) d.value = "";
+  const b = document.getElementById('timeline-block-filter');
+  if (b) b.value = "";
+  const gp = document.getElementById('timeline-panchayat-filter');
+  if (gp) gp.innerHTML = '<option value="">सभी पंचायतें (All GPs)</option>';
+  
+  renderInspectionTimelineTable();
+}
+
+function renderInspectionTimelineTable() {
+  const thead = document.getElementById('timeline-table-head');
+  const tbody = document.getElementById('timeline-table-body');
+  const emptyState = document.getElementById('timeline-empty-state');
+  const countBadge = document.getElementById('timeline-count-badge');
+  if (!tbody || !thead) return;
+
+  const searchVal = (document.getElementById('timeline-search')?.value || '').toLowerCase().trim();
+  const deptFilter = document.getElementById('timeline-dept-filter')?.value || '';
+  const blockFilter = document.getElementById('timeline-block-filter')?.value || '';
+  const panchayatFilter = document.getElementById('timeline-panchayat-filter')?.value || '';
+
+  const normSelectedBlock = getNormalizedBlockKey(blockFilter);
+
+  // Group inspections by departmentId + block + panchayat + village
+  const groupsMap = new Map();
+
+  (state.inspections || []).forEach(insp => {
+    const deptId = String(insp.departmentId || '0');
+    const blockKey = getNormalizedBlockKey(insp.block || '') || (insp.block || '').trim().toUpperCase();
+    const gp = (insp.panchayat || '').trim();
+    const village = (insp.village || '').trim();
     
-    // Status Badge classes
-    let statusClass = "bg-amber-50 text-amber-600 border-amber-100";
-    if (p.status === 'Completed') {
-      statusClass = "bg-emerald-50 text-emerald-600 border-emerald-100";
+    // Composite key for grouping
+    const key = `${deptId}__${blockKey}__${gp.toLowerCase()}__${village.toLowerCase()}`;
+    
+    if (!groupsMap.has(key)) {
+      groupsMap.set(key, {
+        key: key,
+        departmentId: insp.departmentId,
+        block: insp.block,
+        panchayat: gp,
+        village: village,
+        visits: []
+      });
     }
-    
-    const progressInt = parseInt(p.progressPercent);
-    const cleanBlock = p.block.replace(' (221622)', '').replace(' (221608)', '').replace(' (221615)', '').replace(' (221631)', '');
-    
-    card.innerHTML = `
-      <div>
-        <div class="flex items-center justify-between mb-3.5">
-          <span class="px-2 py-0.5 border text-[9px] uppercase font-bold rounded-lg ${statusClass}">${p.status}</span>
-          <span class="text-[9px] font-bold text-slate-400 uppercase">${p.type}</span>
-        </div>
-        <h4 class="text-xs font-extrabold text-slate-800 line-clamp-2">${p.name}</h4>
-        <p class="text-[10px] text-slate-450 font-bold mt-1.5"><i class="fa-solid fa-location-dot text-slate-400 mr-1"></i>${p.village} (${cleanBlock})</p>
-        
-        <!-- Progress Bar -->
-        <div class="mt-4">
-          <div class="flex items-center justify-between text-[10px] font-extrabold text-slate-500 mb-1.5">
-            <span>भौतिक प्रगति (Progress)</span>
-            <span class="text-blue-600">${progressInt}%</span>
-          </div>
-          <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden shadow-inner border border-slate-200/50">
-            <div class="h-full bg-blue-500 rounded-full" style="width: ${progressInt}%"></div>
-          </div>
-        </div>
-        
-        <div class="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-50 text-[10px] text-slate-450 font-bold">
-          <div>
-            <span class="text-slate-400 block text-[9px]">अंतिम निरीक्षण</span>
-            <span>${p.visits.length > 0 ? formatDateString(p.visits[p.visits.length-1].date) : "N/A"}</span>
-          </div>
-          <div>
-            <span class="text-slate-400 block text-[9px]">लक्षित पूर्णता तिथि</span>
-            <span>${formatDateString(p.targetDate)}</span>
-          </div>
-        </div>
-      </div>
-      
-      <button onclick="openProjectTimelineModal('${p.id}')" class="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 py-2 border border-slate-250/70 rounded-xl text-xs font-bold shadow-sm transition-all mt-5 uppercase">
-        प्रगति समय-रेखा और निरीक्षण लॉग &rarr;
-      </button>
+    groupsMap.get(key).visits.push(insp);
+  });
+
+  // Sort visits within each group chronologically (oldest to newest: Visit 1, Visit 2, ...)
+  const allGroups = Array.from(groupsMap.values()).map(g => {
+    g.visits.sort((a, b) => {
+      const da = new Date(a.date);
+      const db = new Date(b.date);
+      if (isNaN(da.getTime()) || isNaN(db.getTime())) return 0;
+      return da - db;
+    });
+    return g;
+  });
+
+  // Filter groups
+  const filteredGroups = allGroups.filter(g => {
+    if (deptFilter && String(g.departmentId) !== String(deptFilter)) return false;
+
+    if (normSelectedBlock) {
+      const gBlockNorm = getNormalizedBlockKey(g.block);
+      if (gBlockNorm !== normSelectedBlock) return false;
+    }
+
+    if (panchayatFilter) {
+      const gpUpper = (g.panchayat || '').toUpperCase();
+      let matchGP = gpUpper === panchayatFilter || gpUpper.includes(panchayatFilter);
+      if (!matchGP && normSelectedBlock && state.hierarchy && state.hierarchy[normSelectedBlock]?.panchayats[panchayatFilter]) {
+        const gpVillages = state.hierarchy[normSelectedBlock].panchayats[panchayatFilter].map(v => v.toLowerCase());
+        if (g.village && gpVillages.includes(g.village.toLowerCase())) {
+          matchGP = true;
+        }
+      }
+      if (!matchGP) return false;
+    }
+
+    if (searchVal) {
+      const matchVillage = (g.village || '').toLowerCase().includes(searchVal);
+      const matchPanchayat = (g.panchayat || '').toLowerCase().includes(searchVal);
+      const matchBlock = (g.block || '').toLowerCase().includes(searchVal);
+      const matchDept = (getDeptBadge(g.departmentId)?.label || '').toLowerCase().includes(searchVal);
+      const matchInVisits = g.visits.some(v => 
+        (v.officerName || '').toLowerCase().includes(searchVal) ||
+        (v.remarks || '').toLowerCase().includes(searchVal) ||
+        (v.id || '').toLowerCase().includes(searchVal)
+      );
+      if (!matchVillage && !matchPanchayat && !matchBlock && !matchDept && !matchInVisits) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  // Update badge count
+  if (countBadge) {
+    countBadge.innerText = `${filteredGroups.length} निरीक्षण स्थल`;
+  }
+
+  // Handle empty state
+  if (filteredGroups.length === 0) {
+    thead.innerHTML = "";
+    tbody.innerHTML = "";
+    if (emptyState) emptyState.classList.remove('hidden');
+    return;
+  }
+  if (emptyState) emptyState.classList.add('hidden');
+
+  // Determine max visits across filtered groups
+  const maxVisits = Math.max(1, ...filteredGroups.map(g => g.visits.length));
+
+  // Build thead
+  let theadHtml = `
+    <tr>
+      <th class="px-3.5 py-3 sticky left-0 bg-slate-100/95 z-20 w-12 text-center border-r border-slate-200">क्र.</th>
+      <th class="px-4 py-3 sticky left-12 bg-slate-100/95 z-20 min-w-[130px] border-r border-slate-200">विभाग</th>
+      <th class="px-4 py-3 sticky left-[172px] bg-slate-100/95 z-20 min-w-[200px] border-r border-slate-200 shadow-md">निरीक्षण स्थल (Location)</th>
+      <th class="px-3 py-3 text-center min-w-[100px] border-r border-slate-200">कुल विज़िट</th>
+      <th class="px-4 py-3 text-center min-w-[160px] bg-blue-50/70 border-r border-slate-200">कार्यवाही (Action)</th>
+  `;
+
+  for (let v = 1; v <= maxVisits; v++) {
+    theadHtml += `<th class="px-4 py-3 text-center min-w-[230px] border-r border-slate-200 bg-slate-50 text-slate-600 font-extrabold uppercase tracking-wider">Visit ${v}</th>`;
+  }
+  theadHtml += `</tr>`;
+  thead.innerHTML = theadHtml;
+
+  // Build tbody
+  tbody.innerHTML = "";
+  filteredGroups.forEach((g, idx) => {
+    const tr = document.createElement('tr');
+    tr.className = "hover:bg-slate-50/70 transition-colors border-b border-slate-150";
+
+    const deptBadge = getDeptBadge(g.departmentId);
+    const cleanBlock = (g.block || '').replace(' (221622)', '').replace(' (221608)', '').replace(' (221615)', '').replace(' (221631)', '');
+    const gpDisplay = g.panchayat ? `<span class="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold mr-1">${escapeHtml(g.panchayat)}</span>` : '';
+
+    let rowHtml = `
+      <td class="px-3.5 py-3 text-center font-bold text-slate-400 sticky left-0 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-200">${idx + 1}</td>
+      <td class="px-4 py-3 sticky left-12 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-200">
+        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase shrink-0 ${deptBadge.bg} ${deptBadge.color}">${deptBadge.label}</span>
+      </td>
+      <td class="px-4 py-3 sticky left-[172px] bg-white group-hover:bg-slate-50 z-10 border-r border-slate-200 shadow-md">
+        <div class="font-extrabold text-slate-800 text-xs">${gpDisplay}${escapeHtml(g.village || 'दंतेवाड़ा')}</div>
+        <div class="text-[10px] text-slate-400 font-semibold mt-0.5">${escapeHtml(cleanBlock)}</div>
+      </td>
+      <td class="px-3 py-3 text-center border-r border-slate-200">
+        <span class="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-100 rounded-full text-[10px] font-extrabold whitespace-nowrap">
+          ${g.visits.length} विज़िट${g.visits.length > 1 ? '्स' : ''}
+        </span>
+      </td>
+      <td class="px-4 py-3 text-center border-r border-slate-200 bg-blue-50/20">
+        <button type="button" onclick="triggerNewVisitForLocation('${escapeJs(String(g.departmentId))}', '${escapeJs(g.block)}', '${escapeJs(g.panchayat)}', '${escapeJs(g.village)}')" 
+                class="px-3 py-1.5 bg-blue-600 hover:bg-blue-750 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center justify-center space-x-1.5 mx-auto active:scale-95 whitespace-nowrap"
+                title="इस स्थल के लिए आगामी निरीक्षण दर्ज करें">
+          <i class="fa-solid fa-plus text-[10px]"></i>
+          <span>New Inspection</span>
+        </button>
+      </td>
     `;
-    grid.appendChild(card);
+
+    for (let v = 0; v < maxVisits; v++) {
+      const item = g.visits[v];
+      if (item) {
+        let photoMarkup = "";
+        if (item.photo) {
+          const capText = `Visit ${v+1}: ${g.village || ''} (${formatDateString(item.date)})`;
+          photoMarkup = `
+            <div class="mt-2 pt-2 border-t border-slate-200/60 flex flex-col items-center">
+              <span class="text-[9px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">Visit Photo</span>
+              <div class="relative group cursor-pointer overflow-hidden rounded-lg border border-slate-200 shadow-sm w-20 h-16 bg-slate-100 shrink-0" 
+                   onclick="event.stopPropagation(); openPhotoLightBox('${escapeJs(item.photo)}', '${escapeJs(capText)}')">
+                <img src="${item.photo}" alt="Visit Photo" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200">
+                <span class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-bold transition-opacity">
+                  <i class="fa-solid fa-magnifying-glass-plus"></i>
+                </span>
+              </div>
+            </div>
+          `;
+        } else {
+          photoMarkup = `
+            <div class="mt-2 pt-2 border-t border-slate-200/60 text-center">
+              <span class="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Visit Photo</span>
+              <span class="text-[9px] text-slate-400 italic">फ़ोटो उपलब्ध नहीं</span>
+            </div>
+          `;
+        }
+
+        rowHtml += `
+          <td class="px-3.5 py-3 border-r border-slate-200 align-top bg-white">
+            <div class="p-3 bg-slate-50 hover:bg-blue-50/40 rounded-xl border border-slate-200/80 transition-all cursor-pointer hover:border-blue-300 shadow-xs space-y-1.5" 
+                 onclick="showInspectionDetail('${escapeJs(item.id)}')" title="पूर्ण निरीक्षण विवरण देखें">
+              <div class="flex items-center justify-between gap-1 border-b border-slate-200/50 pb-1.5">
+                <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-[9px] font-extrabold">Visit ${v+1}</span>
+                <span class="text-[10px] font-bold text-slate-600">${formatDateString(item.date)}</span>
+              </div>
+              <div class="text-[11px] font-bold text-slate-800 flex items-center space-x-1 truncate">
+                <i class="fa-solid fa-user-tie text-[10px] text-slate-400 shrink-0"></i>
+                <span class="truncate">${escapeHtml((item.officerName || 'अधिकारी').replace('Sh ', ''))}</span>
+              </div>
+              <p class="text-[10px] text-slate-500 font-medium line-clamp-2 italic">${escapeHtml(item.remarks || 'कोई विशेष टीप नहीं')}</p>
+              ${photoMarkup}
+            </div>
+          </td>
+        `;
+      } else {
+        rowHtml += `
+          <td class="px-3.5 py-3 border-r border-slate-200 align-middle text-center bg-slate-50/20 text-slate-300 font-bold text-xs">
+            <span class="text-slate-300 font-bold select-none">—</span>
+          </td>
+        `;
+      }
+    }
+
+    tr.innerHTML = rowHtml;
+    tbody.appendChild(tr);
   });
 }
 
-function openProjectTimelineModal(projId) {
-  const p = state.physical_projects.find(proj => proj.id === projId);
-  if (!p) return;
-  
-  document.getElementById('timeline-project-id').value = p.id;
-  document.getElementById('timeline-modal-title').innerText = p.name;
-  
-  const cleanBlock = p.block.replace(' (221622)', '').replace(' (221608)', '').replace(' (221615)', '').replace(' (221631)', '');
-  document.getElementById('timeline-modal-subtitle').innerText = `प्रकार: ${p.type} | कार्यान्वयन विभाग: ${p.department} | स्थान: ${p.village} (${cleanBlock})`;
-  
-  // Render chronological timeline
-  const container = document.getElementById('timeline-progression-container');
-  container.innerHTML = "";
-  
-  if (p.visits.length === 0) {
-    container.innerHTML = `<p class="text-xs text-slate-400 py-6 text-center">इस परियोजना का कोई पिछला निरीक्षण इतिहास उपलब्ध नहीं है।</p>`;
-  } else {
-    // Add timeline line
-    const line = document.createElement('div');
-    line.className = "timeline-line";
-    container.appendChild(line);
-    
-    // Sort visits chronologically (newest at bottom/top? let's show oldest to newest to trace building progression)
-    const sortedVisits = [...p.visits].sort((a, b) => new Date(a.date) - new Date(b.date));
-    
-    sortedVisits.forEach((v, idx) => {
-      const item = document.createElement('div');
-      item.className = "timeline-item";
-      
-      // Determine if completed
-      let dotClass = "";
-      if (v.stage === 'Completed') {
-        dotClass = "completed";
-      } else if (idx === sortedVisits.length - 1) {
-        dotClass = "in-progress";
-      }
-      
-      // Check if image exists
-      let photoHtml = "";
-      if (v.photo) {
-        photoHtml = `
-          <div class="mt-3 max-w-sm rounded-lg overflow-hidden border border-slate-200 shadow-sm relative cursor-pointer" onclick="openPhotoLightBox('${v.photo}')">
-            <img src="${v.photo}" alt="Progress photo" class="w-full h-40 object-cover hover:scale-105 transition-transform duration-300">
-            <span class="absolute bottom-2 right-2 bg-slate-900/60 text-white text-[9px] px-2 py-0.5 rounded uppercase font-bold tracking-wider">विस्तृत देखें</span>
-          </div>
-        `;
-      }
-      
-      item.innerHTML = `
-        <div class="timeline-dot ${dotClass}"></div>
-        <div class="bg-slate-50 border border-slate-100 rounded-2xl p-4 shadow-sm">
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-150 pb-2 mb-2">
-            <div class="flex items-center space-x-2">
-              <span class="text-xs font-extrabold text-blue-900">${v.stage}</span>
-              <span class="bg-blue-600/10 text-blue-600 text-[9px] px-1.5 py-0.5 rounded font-bold">${v.progressPercent}% प्रगति</span>
-            </div>
-            <span class="text-[10px] text-slate-400 font-bold">${formatDateString(v.date)}</span>
-          </div>
-          <p class="text-xs text-slate-700 leading-relaxed font-semibold">${v.remarks}</p>
-          <p class="text-[9px] text-slate-400 mt-2 font-bold uppercase"><i class="fa-solid fa-user text-slate-350 mr-1"></i>निरीक्षक: ${v.officerName}</p>
-          ${photoHtml}
-        </div>
-      `;
-      container.appendChild(item);
-    });
+function triggerNewVisitForLocation(deptId, block, panchayat, village) {
+  switchTab('new-inspection');
+
+  // Set department
+  const deptSelect = document.getElementById('form-select-dept');
+  if (deptSelect && deptId) {
+    deptSelect.value = deptId;
+    onFormDeptChanged(deptId);
   }
-  
-  // Show modal
-  document.getElementById('project-timeline-modal').classList.remove('hidden');
+
+  // Set block
+  const blockSelect = document.getElementById('form-select-block');
+  if (blockSelect && block) {
+    const normKey = getNormalizedBlockKey(block) || block;
+    blockSelect.value = normKey;
+    onFormBlockChanged();
+  }
+
+  // Set panchayat
+  if (panchayat) {
+    const gpSelect = document.getElementById('form-select-panchayat');
+    if (gpSelect) {
+      for (let i = 0; i < gpSelect.options.length; i++) {
+        if (gpSelect.options[i].value.toLowerCase() === panchayat.toLowerCase()) {
+          gpSelect.value = gpSelect.options[i].value;
+          break;
+        }
+      }
+      onFormPanchayatChanged();
+    }
+  }
+
+  // Set village
+  if (village) {
+    const vSelect = document.getElementById('form-select-village');
+    if (vSelect) {
+      for (let i = 0; i < vSelect.options.length; i++) {
+        if (vSelect.options[i].value.toLowerCase() === village.toLowerCase()) {
+          vSelect.value = vSelect.options[i].value;
+          break;
+        }
+      }
+      onFormVillageChanged();
+    }
+    const vInput = document.getElementById('form-input-village');
+    if (vInput) vInput.value = village;
+  }
+
+  // Ensure date is today's date in DD/MM/YYYY
+  const dateInput = document.getElementById('form-input-date');
+  if (dateInput) {
+    dateInput.value = getTodayDateDDMMYYYY();
+  }
+
+  // Ensure cached officer details are active
+  loadCachedOfficerInfo();
+
+  // Scroll to parameters checklist
+  setTimeout(() => {
+    const paramCard = document.getElementById('form-parameters-card');
+    if (paramCard && !paramCard.classList.contains('hidden')) {
+      paramCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, 100);
+
+  showToast("info", "निरीक्षण फॉर्म तैयार", `${village || ''} (${panchayat || block}) हेतु आगामी निरीक्षण फॉर्म लोड किया गया।`);
 }
 
+function openPhotoLightBox(src, caption) {
+  const modal = document.getElementById('photo-lightbox-modal');
+  const img = document.getElementById('lightbox-image');
+  const cap = document.getElementById('lightbox-caption');
+  if (!modal || !img) return;
+
+  img.src = src;
+  if (cap) cap.innerText = caption || 'Visit Photo';
+  modal.classList.remove('hidden');
+}
+
+function closePhotoLightBox() {
+  const modal = document.getElementById('photo-lightbox-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+// Escaping helpers
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function escapeJs(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, ' ')
+    .replace(/\r/g, '');
+}
+
+// Fallback stubs for legacy references
+function renderPhysicalProjectsGrid() {
+  renderInspectionTimelineTable();
+}
+function openNewProjectModal() {}
+function closeNewProjectModal() {}
 function closeTimelineModal() {
-  document.getElementById('project-timeline-modal').classList.add('hidden');
-  
-  // Clear log form fields
-  document.getElementById('visit-select-stage').value = "";
-  document.getElementById('visit-input-progress').value = "";
-  document.getElementById('visit-input-remarks').value = "";
-  document.getElementById('visit-file-photo').value = "";
-  document.getElementById('visit-photo-preview-box').innerHTML = '<i class="fa-solid fa-image text-lg"></i>';
+  const m = document.getElementById('project-timeline-modal');
+  if (m) m.classList.add('hidden');
 }
-
-function handleProjectVisitSubmit(e) {
-  e.preventDefault();
-  
-  const projId = document.getElementById('timeline-project-id').value;
-  const stage = document.getElementById('visit-select-stage').value;
-  const progressPercent = document.getElementById('visit-input-progress').value;
-  const remarks = document.getElementById('visit-input-remarks').value;
-  
-  if (!projId || !stage || !progressPercent || !remarks) {
-    showToast("error", "त्रुटि", "कृपया सभी अनिवार्य क्षेत्र भरें!");
-    return;
-  }
-  
-  const p = state.physical_projects.find(proj => proj.id === projId);
-  if (!p) return;
-  
-  // Get active officer
-  const officerObj = state.officers.find(o => o.id === state.currentOfficerId);
-  const officerName = officerObj ? officerObj.name : "Unknown Officer";
-  
-  // Capture photo
-  const photoBox = document.getElementById('visit-photo-preview-box');
-  const img = photoBox.querySelector('img');
-  
-  const newVisit = {
-    id: "PV_" + projId + "_" + (p.visits.length + 1),
-    date: new Date().toISOString().split('T')[0],
-    stage: stage,
-    progressPercent: parseInt(progressPercent),
-    officerName: officerName,
-    remarks: remarks,
-    photo: img ? img.src : ""
-  };
-  
-  // Append visit and update project core values
-  p.visits.push(newVisit);
-  p.progressPercent = parseInt(progressPercent);
-  p.currentStage = stage;
-  if (parseInt(progressPercent) === 100) {
-    p.status = 'Completed';
-  } else {
-    p.status = 'In Progress';
-  }
-  
-  // Write updated projects array to localstorage
-  let customProjs = [];
-  const savedProjs = localStorage.getItem('officers_inspector_portal_projects');
-  if (savedProjs) {
-    try {
-      customProjs = JSON.parse(savedProjs);
-    } catch (e) {}
-  }
-  
-  // Update customProjs array (replace or push)
-  const idx = customProjs.findIndex(cp => cp.id === projId);
-  if (idx !== -1) {
-    customProjs[idx] = p;
-  } else {
-    customProjs.push(p);
-  }
-  localStorage.setItem('officers_inspector_portal_projects', JSON.stringify(customProjs));
-  
-  // Sync to remote API
-  syncProjectVisitToAPI(projId, newVisit, p.progressPercent, p.currentStage, p.status);
-  
-  // Show Toast, Redraw timeline and update grids
-  showToast("success", "निरीक्षण सहेजा गया", "भौतिक प्रगति निरीक्षण विजिट सफलतापूर्वक सहेजी गई।");
-  closeTimelineModal();
-  renderPhysicalProjectsGrid();
-}
-
-function openNewProjectModal() {
-  document.getElementById('add-project-modal').classList.remove('hidden');
-  
-  // set default date
-  document.getElementById('new-proj-date').value = new Date(Date.now() + 60*24*60*60*1000).toISOString().split('T')[0];
-}
-
-function closeNewProjectModal() {
-  document.getElementById('add-project-modal').classList.add('hidden');
-  document.getElementById('new-project-form').reset();
-}
-
-function handleNewProjectSubmit(e) {
-  e.preventDefault();
-  
-  const name = document.getElementById('new-proj-name').value;
-  const type = document.getElementById('new-proj-type').value;
-  const dept = document.getElementById('new-proj-dept').value;
-  const block = document.getElementById('new-proj-block').value;
-  const village = document.getElementById('new-proj-village').value;
-  const targetDate = document.getElementById('new-proj-date').value;
-  const initProgress = document.getElementById('new-proj-progress').value;
-  
-  const pid = "PPROJ_NEW_" + Math.random().toString(36).substring(2, 10);
-  
-  // Default coordinates fallback to center of district
-  const newProj = {
-    id: pid,
-    name: name,
-    type: type,
-    department: dept,
-    block: block,
-    village: village,
-    latitude: 18.88,
-    longitude: 81.30,
-    targetDate: targetDate,
-    status: parseInt(initProgress) === 100 ? "Completed" : "In Progress",
-    currentStage: "Foundation",
-    progressPercent: parseInt(initProgress),
-    visits: []
-  };
-  
-  // Push initial visit if progress is > 0
-  if (parseInt(initProgress) > 0) {
-    const officerObj = state.officers.find(o => o.id === state.currentOfficerId);
-    newProj.visits.push({
-      id: "PV_" + pid + "_1",
-      date: new Date().toISOString().split('T')[0],
-      stage: "Foundation",
-      progressPercent: parseInt(initProgress),
-      officerName: officerObj ? officerObj.name : "System",
-      remarks: "परियोजना का उद्घाटन एवं निर्माण कार्य का आरंभ किया गया।",
-      photo: ""
-    });
-  }
-  
-  // Save to state & localstorage
-  state.physical_projects.push(newProj);
-  
-  let customProjs = [];
-  const savedProjs = localStorage.getItem('officers_inspector_portal_projects');
-  if (savedProjs) {
-    try {
-      customProjs = JSON.parse(savedProjs);
-    } catch (e) {}
-  }
-  customProjs.push(newProj);
-  localStorage.setItem('officers_inspector_portal_projects', JSON.stringify(customProjs));
-  
-  // Sync to remote API
-  syncNewProjectToAPI(newProj);
-  
-  showToast("success", "सफलता", "नया भौतिक प्रगति निर्माण कार्य सफलतापूर्वक जोड़ा गया है।");
-  closeNewProjectModal();
-  renderPhysicalProjectsGrid();
-}
+function handleProjectVisitSubmit(e) { if (e) e.preventDefault(); }
+function handleNewProjectSubmit(e) { if (e) e.preventDefault(); }
 
 // 10. Reports View & Export CSV Logic
 function populateReportsFilters() {
   const select = document.getElementById('report-officer-filter');
-  if (!select || select.options.length > 1) return; // already populated
+  if (select && select.options.length <= 1) {
+    state.officers.forEach(off => {
+      const opt = document.createElement('option');
+      opt.value = off.name;
+      opt.innerText = off.name;
+      select.appendChild(opt);
+    });
+  }
+}
+
+function onReportBlockChanged() {
+  const blockVal = document.getElementById('report-block-filter').value;
+  populateLocationSelects(blockVal, 'report-panchayat-filter', 'report-village-filter');
+  filterReportsTable();
+}
+
+function onReportPanchayatChanged() {
+  const blockVal = document.getElementById('report-block-filter').value;
+  const gpVal = document.getElementById('report-panchayat-filter').value;
+  const villageSelect = document.getElementById('report-village-filter');
   
-  state.officers.forEach(off => {
-    const opt = document.createElement('option');
-    opt.value = off.name;
-    opt.innerText = off.name;
-    select.appendChild(opt);
-  });
+  const normBlock = getNormalizedBlockKey(blockVal);
+  const hierarchySource = getHierarchySource();
+  const blockData = normBlock ? hierarchySource[normBlock] : null;
+  if (blockData && villageSelect) {
+    villageSelect.innerHTML = '<option value="">सभी ग्राम (All Villages)</option>';
+    let vList = [];
+    if (gpVal && blockData.panchayats) {
+      const matchedKey = Object.keys(blockData.panchayats).find(k => k.toLowerCase() === gpVal.toLowerCase());
+      if (matchedKey && blockData.panchayats[matchedKey] && blockData.panchayats[matchedKey].length > 0) {
+        vList = blockData.panchayats[matchedKey];
+      }
+    }
+    if (!vList || vList.length === 0) {
+      vList = blockData.villages || [];
+    }
+    const uniqueVillages = Array.from(new Set(vList)).sort((a, b) => a.localeCompare(b));
+    uniqueVillages.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.innerText = v;
+      villageSelect.appendChild(opt);
+    });
+  }
+  filterReportsTable();
 }
 
 function renderReportsTable() {
@@ -1620,21 +2141,54 @@ function renderReportsTable() {
   if (!tbody) return;
   tbody.innerHTML = "";
   
-  const searchVal = document.getElementById('report-search').value.toLowerCase();
+  const searchVal = document.getElementById('report-search').value.toLowerCase().trim();
   const deptFilter = document.getElementById('report-dept-filter').value;
   const officerFilter = document.getElementById('report-officer-filter').value;
   const blockFilter = document.getElementById('report-block-filter').value;
+  const panchayatFilter = document.getElementById('report-panchayat-filter') ? document.getElementById('report-panchayat-filter').value : "";
+  const villageFilter = document.getElementById('report-village-filter') ? document.getElementById('report-village-filter').value : "";
+  
+  const normSelectedBlock = getNormalizedBlockKey(blockFilter);
   
   let filtered = state.inspections.filter(i => {
     if (deptFilter && parseInt(i.departmentId) !== parseInt(deptFilter)) return false;
     if (officerFilter && i.officerName !== officerFilter) return false;
-    if (blockFilter && !i.block.toUpperCase().includes(blockFilter)) return false;
     
+    // Block filter
+    if (normSelectedBlock) {
+      const inspBlock = getNormalizedBlockKey(i.block);
+      if (inspBlock !== normSelectedBlock) return false;
+    }
+    
+    // Gram Panchayat filter
+    if (panchayatFilter) {
+      const inspGP = (i.panchayat || '').toUpperCase();
+      let matchGP = inspGP === panchayatFilter || inspGP.includes(panchayatFilter);
+      if (!matchGP && normSelectedBlock && state.hierarchy[normSelectedBlock]?.panchayats[panchayatFilter]) {
+        const gpVillages = state.hierarchy[normSelectedBlock].panchayats[panchayatFilter].map(v => v.toLowerCase());
+        if (i.village && gpVillages.includes(i.village.toLowerCase())) {
+          matchGP = true;
+        }
+      }
+      if (!matchGP) return false;
+    }
+    
+    // Village filter
+    if (villageFilter) {
+      const inspVillage = (i.village || '').toLowerCase();
+      if (!inspVillage.includes(villageFilter.toLowerCase()) && !i.facilityName.toLowerCase().includes(villageFilter.toLowerCase())) {
+        return false;
+      }
+    }
+    
+    // Keyword search filter
     if (searchVal) {
       const matchName = i.facilityName.toLowerCase().includes(searchVal);
-      const matchRemarks = i.remarks.toLowerCase().includes(searchVal);
-      const matchVillage = i.village.toLowerCase().includes(searchVal);
-      if (!matchName && !matchRemarks && !matchVillage) return false;
+      const matchRemarks = (i.remarks || '').toLowerCase().includes(searchVal);
+      const matchVillage = (i.village || '').toLowerCase().includes(searchVal);
+      const matchPanchayat = (i.panchayat || '').toLowerCase().includes(searchVal);
+      const matchOfficer = (i.officerName || '').toLowerCase().includes(searchVal);
+      if (!matchName && !matchRemarks && !matchVillage && !matchPanchayat && !matchOfficer) return false;
     }
     return true;
   });
@@ -1652,6 +2206,7 @@ function renderReportsTable() {
     
     const badge = getDeptBadge(i.departmentId);
     const cleanBlock = i.block.replace(' (221622)', '').replace(' (221608)', '').replace(' (221615)', '').replace(' (221631)', '');
+    const gpInfo = i.panchayat ? `<span class="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold mr-1">${i.panchayat}</span>` : '';
     
     tr.innerHTML = `
       <td class="px-6 py-4 font-bold text-slate-500 whitespace-nowrap">${formatDateString(i.date)}</td>
@@ -1659,10 +2214,10 @@ function renderReportsTable() {
         <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase shrink-0 ${badge.bg} ${badge.color}">${badge.label}</span>
       </td>
       <td class="px-6 py-4">
-        <div class="font-bold text-slate-800">${i.village}</div>
+        <div class="font-bold text-slate-800">${gpInfo}${i.village}</div>
         <div class="text-[10px] text-slate-400 font-semibold mt-0.5">${cleanBlock}</div>
       </td>
-      <td class="px-6 py-4 font-extrabold text-slate-800">${i.facilityName}</td>
+      <td class="px-6 py-4 font-extrabold text-slate-800">${i.facilityName || i.village || '-'}</td>
       <td class="px-6 py-4 font-semibold text-slate-500">${i.officerName.replace('Sh ', '')}</td>
       <td class="px-6 py-4 text-center">
         <span class="px-2 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded text-[9px] font-bold">SUBMITTED</span>
@@ -1684,37 +2239,69 @@ function clearReportsFilters() {
   document.getElementById('report-dept-filter').value = "";
   document.getElementById('report-officer-filter').value = "";
   document.getElementById('report-block-filter').value = "";
+  const gpSelect = document.getElementById('report-panchayat-filter');
+  if (gpSelect) gpSelect.innerHTML = '<option value="">सभी ग्राम पंचायत (All GPs)</option>';
+  const vSelect = document.getElementById('report-village-filter');
+  if (vSelect) vSelect.innerHTML = '<option value="">सभी ग्राम (All Villages)</option>';
   renderReportsTable();
 }
 
 function exportReportsCSV() {
-  // Build CSV payload
-  let csv = 'Inspection ID,Date,Department,Block,Village,Facility Name,Officer Name,Remarks\n';
+  let csv = 'Inspection ID,Date,Department,Block,Panchayat,Village,Facility Name,Officer Name,Remarks\n';
   
-  const searchVal = document.getElementById('report-search').value.toLowerCase();
+  const searchVal = document.getElementById('report-search').value.toLowerCase().trim();
   const deptFilter = document.getElementById('report-dept-filter').value;
   const officerFilter = document.getElementById('report-officer-filter').value;
   const blockFilter = document.getElementById('report-block-filter').value;
+  const panchayatFilter = document.getElementById('report-panchayat-filter') ? document.getElementById('report-panchayat-filter').value : "";
+  const villageFilter = document.getElementById('report-village-filter') ? document.getElementById('report-village-filter').value : "";
+  
+  const normSelectedBlock = getNormalizedBlockKey(blockFilter);
   
   let filtered = state.inspections.filter(i => {
     if (deptFilter && parseInt(i.departmentId) !== parseInt(deptFilter)) return false;
     if (officerFilter && i.officerName !== officerFilter) return false;
-    if (blockFilter && !i.block.toUpperCase().includes(blockFilter)) return false;
+    
+    if (normSelectedBlock) {
+      const inspBlock = getNormalizedBlockKey(i.block);
+      if (inspBlock !== normSelectedBlock) return false;
+    }
+    
+    if (panchayatFilter) {
+      const inspGP = (i.panchayat || '').toUpperCase();
+      let matchGP = inspGP === panchayatFilter || inspGP.includes(panchayatFilter);
+      if (!matchGP && normSelectedBlock && state.hierarchy[normSelectedBlock]?.panchayats[panchayatFilter]) {
+        const gpVillages = state.hierarchy[normSelectedBlock].panchayats[panchayatFilter].map(v => v.toLowerCase());
+        if (i.village && gpVillages.includes(i.village.toLowerCase())) {
+          matchGP = true;
+        }
+      }
+      if (!matchGP) return false;
+    }
+    
+    if (villageFilter) {
+      const inspVillage = (i.village || '').toLowerCase();
+      if (!inspVillage.includes(villageFilter.toLowerCase()) && !i.facilityName.toLowerCase().includes(villageFilter.toLowerCase())) {
+        return false;
+      }
+    }
     
     if (searchVal) {
       const matchName = i.facilityName.toLowerCase().includes(searchVal);
-      const matchRemarks = i.remarks.toLowerCase().includes(searchVal);
-      const matchVillage = i.village.toLowerCase().includes(searchVal);
-      if (!matchName && !matchRemarks && !matchVillage) return false;
+      const matchRemarks = (i.remarks || '').toLowerCase().includes(searchVal);
+      const matchVillage = (i.village || '').toLowerCase().includes(searchVal);
+      const matchPanchayat = (i.panchayat || '').toLowerCase().includes(searchVal);
+      const matchOfficer = (i.officerName || '').toLowerCase().includes(searchVal);
+      if (!matchName && !matchRemarks && !matchVillage && !matchPanchayat && !matchOfficer) return false;
     }
     return true;
   });
   
   filtered.forEach(i => {
     const deptBadge = getDeptBadge(i.departmentId);
-    // Escape remarks for CSV quotes
-    const cleanRemarks = i.remarks.replace(/"/g, '""');
-    csv += `"${i.id}","${i.date}","${deptBadge.label}","${i.block}","${i.village}","${i.facilityName}","${i.officerName}","${cleanRemarks}"\n`;
+    const cleanRemarks = (i.remarks || '').replace(/"/g, '""');
+    const cleanPanchayat = (i.panchayat || '').replace(/"/g, '""');
+    csv += `"${i.id}","${formatDateString(i.date)}","${deptBadge.label}","${i.block}","${cleanPanchayat}","${i.village}","${i.facilityName}","${i.officerName}","${cleanRemarks}"\n`;
   });
   
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1893,14 +2480,14 @@ function showInspectionDetail(id) {
       <!-- Info Header Grid -->
       <div class="grid grid-cols-2 gap-4 bg-slate-50 p-4 border border-slate-150 rounded-2xl">
         <div>
-          <span class="text-[9px] text-slate-400 font-bold uppercase block">शासकीय संस्था (Facility)</span>
-          <h4 class="text-xs font-extrabold text-slate-800">${i.facilityName}</h4>
+          <span class="text-[9px] text-slate-400 font-bold uppercase block">${i.facilityName ? 'शासकीय संस्था (Facility)' : 'निरीक्षण स्थल (Location)'}</span>
+          <h4 class="text-xs font-extrabold text-slate-800">${i.facilityName || i.village}</h4>
           <p class="text-[10px] text-slate-500 font-bold mt-0.5">${i.village} (${cleanBlock})</p>
         </div>
         <div>
           <span class="text-[9px] text-slate-400 font-bold uppercase block">निरीक्षक अधिकारी (Officer)</span>
           <h4 class="text-xs font-extrabold text-slate-800">${i.officerName}</h4>
-          <p class="text-[10px] text-slate-500 font-bold mt-0.5">दिनांक: ${formatDateString(i.date)}</p>
+          <p class="text-[10px] text-slate-500 font-bold mt-0.5">${[i.officerDesignation, i.officerPhone].filter(Boolean).join(' • ') || 'दिनांक: ' + formatDateString(i.date)}</p>
         </div>
         <div class="col-span-2 border-t border-slate-200/50 pt-2 flex items-center justify-between">
           <div class="flex items-center space-x-2">
@@ -2034,14 +2621,85 @@ function findFacilityByName(name) {
 }
 
 // 14. Formatting Helpers
+function getTodayDateISO() {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getTodayDateDDMMYYYY() {
+  const d = new Date();
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+function triggerDatePicker() {
+  const picker = document.getElementById('native-date-picker');
+  if (!picker) return;
+  
+  const currentVal = document.getElementById('form-input-date')?.value.trim();
+  if (currentVal && /^\d{2}\/\d{2}\/\d{4}$/.test(currentVal)) {
+    const parts = currentVal.split('/');
+    picker.value = `${parts[2]}-${parts[1]}-${parts[0]}`;
+  } else {
+    picker.value = getTodayDateISO();
+  }
+  
+  if (picker.showPicker) {
+    try {
+      picker.showPicker();
+    } catch (e) {
+      picker.click();
+    }
+  } else {
+    picker.click();
+  }
+}
+
+function onNativeDatePicked(val) {
+  if (!val) return;
+  const parts = val.split('-');
+  if (parts.length === 3) {
+    const dateInput = document.getElementById('form-input-date');
+    if (dateInput) {
+      dateInput.value = `${parts[2]}/${parts[1]}/${parts[0]}`;
+      saveCurrentFormDraft();
+    }
+  }
+}
+
 function formatDateString(str) {
   if (!str) return "N/A";
   try {
-    const d = new Date(str);
-    if (isNaN(d.getTime())) return str;
-    return d.toLocaleDateString('hi-IN', { year: 'numeric', month: 'short', day: 'numeric' });
+    if (typeof str === 'string') {
+      const clean = str.trim();
+      // Already DD/MM/YYYY
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(clean)) {
+        return clean;
+      }
+      // YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS
+      const isoMatch = clean.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (isoMatch) {
+        return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+      }
+      // DD-MM-YYYY
+      const dashMatch = clean.match(/^(\d{2})-(\d{2})-(\d{4})/);
+      if (dashMatch) {
+        return `${dashMatch[1]}/${dashMatch[2]}/${dashMatch[3]}`;
+      }
+    }
+    const d = (str instanceof Date) ? str : new Date(str);
+    if (isNaN(d.getTime())) return String(str);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
   } catch (e) {
-    return str;
+    return String(str);
   }
 }
 

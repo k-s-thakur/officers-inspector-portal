@@ -2,6 +2,7 @@ import zipfile
 import xml.etree.ElementTree as ET
 import os
 import json
+import re
 from datetime import datetime, timedelta
 
 def get_rows(file_path, has_header=True):
@@ -533,6 +534,164 @@ physical_projects = [
     }
 ]
 
+# 9. Build Administrative Hierarchy (Block -> Gram Panchayat -> Villages)
+def normalize_block_key(b):
+    b = str(b or '').strip().upper()
+    if 'DANTEWADA' in b or 'दंतेवाड़ा' in b or 'दंतेवाडा' in b:
+        return 'DANTEWADA'
+    if 'GEEDAM' in b or 'गीदम' in b:
+        return 'GEEDAM'
+    if 'KATEKALYAN' in b or 'कटेकल्याण' in b:
+        return 'KATEKALYAN'
+    if 'KUAKONDA' in b or 'कुआकोंडा' in b or 'कुंआकोंडा' in b:
+        return 'KUAKONDA'
+    return b
+
+# Read master Dantewada Gram Panchayats from dantewada-gps.ts
+root_dir = os.path.dirname(os.path.abspath(__file__))
+dantewada_gps_file = os.path.join(root_dir, "dantewada-gps.ts")
+district_file = os.path.join(root_dir, "district.ts")
+
+gp_aliases = {}
+if os.path.exists(district_file):
+    with open(district_file, 'r', encoding='utf-8') as f:
+        d_text = f.read()
+    aliases_match = re.search(r'const GP_ALIASES:\s*Record<string,\s*string>\s*=\s*\{([^}]+)\};', d_text)
+    if aliases_match:
+        for line in aliases_match.group(1).strip().splitlines():
+            parts = line.split(':')
+            if len(parts) == 2:
+                k = parts[0].strip().strip('\"\'')
+                v = parts[1].strip().strip('\"\' ,;')
+                gp_aliases[k.upper()] = v.upper()
+
+def normalize_gp_key(gp_str):
+    if not gp_str:
+        return ''
+    gp = re.sub(r'\s*\([^)]*\)\s*', '', str(gp_str)).strip().upper()
+    gp = re.sub(r'\s+', ' ', gp)
+    return gp_aliases.get(gp, gp)
+
+hierarchy = {
+    'DANTEWADA': {'name': 'दंतेवाड़ा (Dantewada)', 'panchayats': {}, 'villages': set()},
+    'GEEDAM': {'name': 'गीदम (Geedam)', 'panchayats': {}, 'villages': set()},
+    'KATEKALYAN': {'name': 'कटेकल्याण (Katekalyan)', 'panchayats': {}, 'villages': set()},
+    'KUAKONDA': {'name': 'कुआकोंडा (Kuakonda)', 'panchayats': {}, 'villages': set()}
+}
+
+master_gp_map = {}
+if os.path.exists(dantewada_gps_file):
+    with open(dantewada_gps_file, 'r', encoding='utf-8') as f:
+        gps_text = f.read()
+    gps_raw = re.findall(r'\{\s*block:\s*\"([^\"]+)\",\s*gp:\s*\"([^\"]+)\"\s*\}', gps_text)
+    for b, gp in gps_raw:
+        b_key = normalize_block_key(b)
+        norm_gp = normalize_gp_key(gp)
+        master_gp_map[(b_key, norm_gp)] = gp
+        if b_key in hierarchy:
+            if gp not in hierarchy[b_key]['panchayats']:
+                hierarchy[b_key]['panchayats'][gp] = {gp}
+            hierarchy[b_key]['villages'].add(gp)
+
+def resolve_gp_name(b_key, raw_gp):
+    if not raw_gp:
+        return ''
+    norm_gp = normalize_gp_key(raw_gp)
+    if (b_key, norm_gp) in master_gp_map:
+        return master_gp_map[(b_key, norm_gp)]
+    for (mb, mgp), cname in master_gp_map.items():
+        if mb == b_key:
+            if norm_gp == mgp or norm_gp.replace(' ', '') == mgp.replace(' ', ''):
+                return cname
+    # Retain raw GP if urban body or special area
+    cleaned = re.sub(r'\s*\([^)]*\)\s*', '', str(raw_gp)).strip()
+    return cleaned.title() if cleaned.isupper() else cleaned
+
+for r in school_rows:
+    b = normalize_block_key(r.get('Block'))
+    raw_gp = r.get('VillagePanchayat', '').strip()
+    gp = resolve_gp_name(b, raw_gp)
+    v = r.get('Village', '').strip()
+    if b in hierarchy and gp:
+        if gp not in hierarchy[b]['panchayats']:
+            hierarchy[b]['panchayats'][gp] = {gp}
+        if v:
+            hierarchy[b]['panchayats'][gp].add(v)
+            hierarchy[b]['villages'].add(v)
+
+for r in inspections_raw:
+    b = normalize_block_key(r.get('जनपद पंचायत\t\t', r.get('जनपद पंचायत', '')))
+    raw_gp = r.get('ग्राम पंचायत ', r.get('ग्राम पंचायत', '')).strip()
+    gp = resolve_gp_name(b, raw_gp)
+    v = r.get('आश्रित ग्राम ', r.get('आश्रित ग्राम', '')).strip()
+    if b in hierarchy and gp:
+        if gp not in hierarchy[b]['panchayats']:
+            hierarchy[b]['panchayats'][gp] = {gp}
+        if v:
+            hierarchy[b]['panchayats'][gp].add(v)
+            hierarchy[b]['villages'].add(v)
+
+for r in awc_rows:
+    b = normalize_block_key(r.get('Block'))
+    v = r.get('Village', '').strip()
+    if b in hierarchy and v:
+        hierarchy[b]['villages'].add(v)
+        for gp, v_set in hierarchy[b]['panchayats'].items():
+            if v.lower() == gp.lower() or normalize_gp_key(v) == normalize_gp_key(gp):
+                v_set.add(v)
+                break
+
+for r in health_centers:
+    b = normalize_block_key(r.get('block'))
+    v = r.get('village', '').strip()
+    if b in hierarchy and v:
+        hierarchy[b]['villages'].add(v)
+        for gp, v_set in hierarchy[b]['panchayats'].items():
+            if v.lower() == gp.lower() or normalize_gp_key(v) == normalize_gp_key(gp):
+                v_set.add(v)
+                break
+
+for r in vet_centers:
+    b = normalize_block_key(r.get('block'))
+    v = r.get('village', '').strip()
+    if b in hierarchy and v:
+        hierarchy[b]['villages'].add(v)
+        for gp, v_set in hierarchy[b]['panchayats'].items():
+            if v.lower() == gp.lower() or normalize_gp_key(v) == normalize_gp_key(gp):
+                v_set.add(v)
+                break
+
+def clean_village_name(v):
+    if not v:
+        return ''
+    s = str(v).strip()
+    return s.title() if s.isupper() else s
+
+def deduplicate_villages(v_list):
+    seen = {}
+    for v in v_list:
+        cv = clean_village_name(v)
+        if not cv:
+            continue
+        key = cv.lower()
+        if key not in seen or (seen[key].isupper() and not cv.isupper()):
+            seen[key] = cv
+    return sorted(list(seen.values()), key=lambda s: s.lower())
+
+compiled_hierarchy = {}
+for b, data in hierarchy.items():
+    sorted_gps = {}
+    all_b_villages = []
+    for gp in sorted(data['panchayats'].keys(), key=lambda s: s.lower()):
+        cleaned_v = deduplicate_villages(data['panchayats'][gp])
+        sorted_gps[gp] = cleaned_v
+        all_b_villages.extend(cleaned_v)
+    compiled_hierarchy[b] = {
+        'name': data['name'],
+        'panchayats': sorted_gps,
+        'villages': deduplicate_villages(all_b_villages)
+    }
+
 # Create output object
 db_js_content = f"""// Auto-generated Database from Excel files
 // Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
@@ -544,11 +703,15 @@ const REAL_DATABASE = {{
   health_centers: {json.dumps(health_centers, indent=2, ensure_ascii=False)},
   vet_centers: {json.dumps(vet_centers, indent=2, ensure_ascii=False)},
   inspections: {json.dumps(inspections, indent=2, ensure_ascii=False)},
-  physical_projects: {json.dumps(physical_projects, indent=2, ensure_ascii=False)}
+  physical_projects: {json.dumps(physical_projects, indent=2, ensure_ascii=False)},
+  hierarchy: {json.dumps(compiled_hierarchy, indent=2, ensure_ascii=False)}
 }};
 
 if (typeof module !== 'undefined' && module.exports) {{
   module.exports = REAL_DATABASE;
+}}
+if (typeof window !== 'undefined') {{
+  window.REAL_DATABASE = REAL_DATABASE;
 }}
 """
 
@@ -557,3 +720,4 @@ with open(out_file_path, "w", encoding="utf-8") as f:
     f.write(db_js_content)
 
 print(f"SUCCESS: Compiled database successfully to {out_file_path}!")
+
