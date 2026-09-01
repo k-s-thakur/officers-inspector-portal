@@ -1,8 +1,30 @@
 // Collector Portal - Core Frontend Application Logic
 
-// Google Apps Script Web App API URL.
-// Put your deployed Google Apps Script URL here to enable Sheets integration.
-const API_URL = "https://script.google.com/macros/s/AKfycbyLzcOSx4m60yK6dT2-hAiOuHonRPvJQP-PGnz1V1XUg4I-CNTlnpwNK28TQN7d6Xy94w/exec";
+let API_URL = "";
+
+async function loadEnv() {
+  try {
+    const res = await fetch(".env", { cache: "no-store" });
+    if (!res.ok) return;
+
+    const envText = await res.text();
+    envText.split(/\r?\n/).forEach((line) => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) return;
+
+      const separatorIndex = trimmed.indexOf("=");
+      if (separatorIndex === -1) return;
+
+      const key = trimmed.slice(0, separatorIndex).trim();
+      const value = trimmed.slice(separatorIndex + 1).trim().replace(/^["']|["']$/g, "");
+      if (key === "API_URL") {
+        API_URL = value;
+      }
+    });
+  } catch (err) {
+    console.warn("Unable to load .env. Using local static database.js.", err);
+  }
+}
 
 // Application State
 let state = {
@@ -113,7 +135,8 @@ if (typeof REAL_DATABASE !== 'undefined' && REAL_DATABASE && REAL_DATABASE.hiera
 }
 
 // Full Application Initialization
-function initApp() {
+async function initApp() {
+  await loadEnv();
   initializeDatabase();
   setupNavigation();
   populateHeaderOfficerSelect();
@@ -233,7 +256,7 @@ function initializeDatabase() {
 
 // Fetch database from Google Sheets API
 async function fetchDatabase() {
-  const finalApiUrl = localStorage.getItem('inspection_api_url') || API_URL;
+  const finalApiUrl = API_URL;
   if (!finalApiUrl) {
     console.log("No API_URL configured. Using local static database.js.");
     return;
@@ -350,7 +373,7 @@ async function fetchDatabase() {
 
 // Sync new inspection to Google Sheets API
 async function syncInspectionToAPI(inspection) {
-  const finalApiUrl = localStorage.getItem('inspection_api_url') || API_URL;
+  const finalApiUrl = API_URL;
   if (!finalApiUrl) return true;
   
   const payload = {
@@ -390,7 +413,7 @@ async function syncInspectionToAPI(inspection) {
 
 // Sync a project visit to Google Sheets API
 async function syncProjectVisitToAPI(projectId, visit, progressPercent, currentStage, status) {
-  const finalApiUrl = localStorage.getItem('inspection_api_url') || API_URL;
+  const finalApiUrl = API_URL;
   if (!finalApiUrl) return true;
   
   const payload = {
@@ -419,7 +442,7 @@ async function syncProjectVisitToAPI(projectId, visit, progressPercent, currentS
 
 // Sync new project to Google Sheets API
 async function syncNewProjectToAPI(project) {
-  const finalApiUrl = localStorage.getItem('inspection_api_url') || API_URL;
+  const finalApiUrl = API_URL;
   if (!finalApiUrl) return true;
   
   const payload = {
@@ -2720,15 +2743,4 @@ function getBlockCode(block) {
     'KUAKONDA': '221631'
   };
   return codes[block.toUpperCase()] || '221600';
-}
-
-// Global API configuration helper
-function configureApiUrl() {
-  const currentUrl = localStorage.getItem('inspection_api_url') || API_URL;
-  const url = prompt("Google Apps Script Web App URL दर्ज करें (Enter Apps Script URL):", currentUrl);
-  if (url !== null) {
-    localStorage.setItem('inspection_api_url', url.trim());
-    alert("API URL सहेज ली गई है! एप्लिकेशन अब रीलोड होगी।");
-    window.location.reload();
-  }
 }
