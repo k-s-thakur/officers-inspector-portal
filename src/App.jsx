@@ -107,7 +107,7 @@ export default function App() {
   const renderDataState = () => {
     if (loading) {
       return (
-        <div className="empty-state-table loading-state">
+        <div className="data-state-panel empty-state-table loading-state">
           <span className="loading-spinner" aria-hidden="true" />
           <span>डेटा लोड हो रहा है...</span>
         </div>
@@ -115,7 +115,7 @@ export default function App() {
     }
 
     if (loadError) {
-      return <div className="empty-state-table">{loadError}</div>;
+      return <div className="data-state-panel empty-state-table">{loadError}</div>;
     }
 
     if (beneficiaries.length === 0) {
