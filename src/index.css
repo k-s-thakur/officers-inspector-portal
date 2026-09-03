@@ -2098,6 +2098,32 @@ body {
   padding: 1.5rem 1rem;
 }
 
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  animation: loading-fade-in 0.2s ease-out;
+}
+
+.loading-spinner {
+  width: 0.9rem;
+  height: 0.9rem;
+  border: 2px solid #cbd5e1;
+  border-top-color: #0f766e;
+  border-radius: 50%;
+  animation: loading-spin 0.2s linear infinite;
+}
+
+@keyframes loading-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes loading-spin {
+  to { transform: rotate(360deg); }
+}
+
 .report-pagination {
   display: flex;
   align-items: center;
