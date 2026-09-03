@@ -2,7 +2,7 @@
 <html lang="hi" class="h-full bg-slate-50">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
   <title>शासकीय निरीक्षण एवं अनुश्रवण प्रणाली - अधिकारी निरीक्षण पोर्टल | Officers Inspector Portal</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -39,21 +39,24 @@
   </div>
 
   <!-- Toast Notification -->
-  <div id="toast" class="fixed top-5 right-5 z-50 transform translate-y-[-150%] transition-all duration-350 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-3 max-w-sm">
+  <div id="toast" class="fixed top-4 inset-x-4 sm:inset-x-auto sm:top-5 sm:right-5 z-50 transform translate-y-[-150%] transition-all duration-350 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-3 sm:max-w-sm">
     <div id="toast-icon-bg" class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm shrink-0">
       <i class="fa-solid fa-circle-check"></i>
     </div>
-    <div>
-      <h4 id="toast-title" class="text-xs font-bold text-white">सफलता (Success)</h4>
-      <p id="toast-message" class="text-[11px] text-slate-400 mt-0.5 font-medium"></p>
+    <div class="min-w-0 flex-1">
+      <h4 id="toast-title" class="text-xs font-bold text-white truncate">सफलता (Success)</h4>
+      <p id="toast-message" class="text-[11px] text-slate-400 mt-0.5 font-medium truncate"></p>
     </div>
   </div>
 
+  <!-- Mobile Sidebar Backdrop Overlay -->
+  <div id="sidebar-backdrop" onclick="toggleMobileSidebar(false)" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-30 hidden lg:hidden transition-opacity duration-300"></div>
+
   <!-- Main Shell -->
-  <div class="flex h-full w-full overflow-hidden">
+  <div class="flex h-full w-full overflow-hidden relative">
     
     <!-- Sidebar / Navigation -->
-    <aside id="sidebar" class="w-72 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 transition-all duration-300 z-30 shrink-0 no-print">
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-72 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 transition-transform duration-300 ease-in-out shrink-0 no-print -translate-x-full lg:translate-x-0 lg:static lg:z-auto shadow-2xl lg:shadow-none">
       <!-- Sidebar Header -->
       <div class="h-16 flex items-center justify-between px-5 bg-slate-950 border-b border-slate-800 shrink-0">
         <div class="flex items-center space-x-3">
@@ -65,6 +68,9 @@
             <p class="text-[9px] text-blue-400 font-bold tracking-wider">OFFICERS INSPECTOR PORTAL</p>
           </div>
         </div>
+        <button type="button" onclick="toggleMobileSidebar(false)" class="lg:hidden text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition-colors" title="मेनू बंद करें" aria-label="Close sidebar">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
       </div>
 
       <!-- Navigation Links -->
@@ -82,11 +88,6 @@
         <button id="nav-btn-physical" onclick="switchTab('physical')" class="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-xs font-semibold hover:bg-slate-800 hover:text-white text-slate-400 transition-colors">
           <i class="fa-solid fa-clipboard-check text-sm shrink-0"></i>
           <span>निरीक्षण (Inspection)</span>
-        </button>
-
-        <button id="nav-btn-reports" onclick="switchTab('reports')" class="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-xs font-semibold hover:bg-slate-800 hover:text-white text-slate-400 transition-colors">
-          <i class="fa-solid fa-file-invoice text-sm shrink-0"></i>
-          <span>निरीक्षण रिपोर्ट्स (Reports)</span>
         </button>
 
         <div class="pt-4 pb-2 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-t border-slate-800 mt-4">
@@ -115,19 +116,25 @@
     <main class="flex-1 flex flex-col overflow-hidden min-w-0 bg-slate-50">
       
       <!-- Header -->
-      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 no-print">
-        <div class="flex items-center space-x-4">
-          <button id="btn-toggle-sidebar" class="text-slate-600 hover:bg-slate-100 p-2 rounded-lg lg:hidden block">
-            <i class="fa-solid fa-bars-staggered"></i>
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-3 sm:px-6 shrink-0 no-print gap-2">
+        <div class="flex items-center space-x-2 sm:space-x-4 min-w-0">
+          <button id="btn-toggle-sidebar" class="text-slate-600 hover:bg-slate-100 p-2 rounded-lg lg:hidden block shrink-0" aria-label="Toggle Menu">
+            <i class="fa-solid fa-bars-staggered text-base"></i>
           </button>
-          <h2 id="current-view-title" class="text-sm font-extrabold text-slate-900 uppercase tracking-wide">अधिकारी डैशबोर्ड (Dashboard)</h2>
+          <h2 id="current-view-title" class="text-xs sm:text-sm font-extrabold text-slate-900 uppercase tracking-wide truncate">अधिकारी डैशबोर्ड (Dashboard)</h2>
         </div>
 
-        <div class="flex items-center space-x-6">
+        <div class="flex items-center space-x-1.5 sm:space-x-3 shrink-0">
+          <!-- Sync indicator / API Settings -->
+          <button type="button" onclick="configureApiUrl()" class="flex items-center space-x-1.5 bg-slate-50 border border-slate-200 rounded-full px-2 sm:px-3 py-1 text-[10px] sm:text-[11px] text-slate-700 font-bold shadow-xs cursor-pointer hover:bg-slate-100 transition-colors shrink-0" title="API Settings">
+            <i class="fa-solid fa-gear text-slate-500"></i>
+            <span class="hidden sm:inline">API Settings</span>
+            <span class="sm:hidden text-[10px]">API</span>
+          </button>
           <!-- Active Officer Display -->
-          <div class="flex items-center space-x-2">
-            <label for="header-officer-select" class="text-xs text-slate-500 font-bold hidden md:block">अधिकारी लॉग इन:</label>
-            <select id="header-officer-select" onchange="onGlobalOfficerChanged(this.value)" class="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-800 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500 shadow-sm cursor-pointer">
+          <div class="flex items-center space-x-1 sm:space-x-1.5">
+            <label for="header-officer-select" class="text-xs text-slate-500 font-bold hidden md:block">अधिकारी:</label>
+            <select id="header-officer-select" onchange="onGlobalOfficerChanged(this.value)" class="text-[11px] sm:text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-800 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500 shadow-xs cursor-pointer max-w-[105px] xs:max-w-[130px] sm:max-w-[200px] md:max-w-xs truncate">
               <!-- Dynamically populated -->
             </select>
           </div>
@@ -135,115 +142,115 @@
       </header>
 
       <!-- Scrollable Content -->
-      <div class="flex-1 overflow-y-auto p-6" id="workspace-container">
+      <div class="flex-1 overflow-y-auto p-3 sm:p-5 md:p-6 pb-24 lg:pb-6" id="workspace-container">
         
         <!-- ==================== DASHBOARD VIEW ==================== -->
-        <section id="view-dashboard" class="space-y-6 block">
+        <section id="view-dashboard" class="space-y-4 sm:space-y-6 block">
           <!-- KPI Stats -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
-            <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between hover-card">
-              <div>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">कुल निरीक्षण</p>
-                <h3 id="stat-total-submissions" class="text-2xl font-extrabold text-slate-900 mt-1">0</h3>
-                <p class="text-[10px] text-blue-500 font-bold mt-1">Total Inspections</p>
+          <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2.5 sm:gap-4 lg:gap-5">
+            <div class="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between hover-card">
+              <div class="min-w-0 pr-2">
+                <p class="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">कुल निरीक्षण</p>
+                <h3 id="stat-total-submissions" class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-0.5 sm:mt-1">0</h3>
+                <p class="text-[9px] sm:text-[10px] text-blue-500 font-bold mt-0.5 sm:mt-1 truncate">Total Inspections</p>
               </div>
-              <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center text-xl shadow-inner">
+              <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center text-lg sm:text-xl shadow-inner shrink-0">
                 <i class="fa-solid fa-paste"></i>
               </div>
             </div>
 
-            <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between hover-card">
-              <div>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">आज के निरीक्षण</p>
-                <h3 id="stat-today-submissions" class="text-2xl font-extrabold text-emerald-600 mt-1">0</h3>
-                <p class="text-[10px] text-slate-400 font-bold mt-1">Today's Visits</p>
+            <div class="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between hover-card">
+              <div class="min-w-0 pr-2">
+                <p class="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">आज के निरीक्षण</p>
+                <h3 id="stat-today-submissions" class="text-xl sm:text-2xl font-extrabold text-emerald-600 mt-0.5 sm:mt-1">0</h3>
+                <p class="text-[9px] sm:text-[10px] text-slate-400 font-bold mt-0.5 sm:mt-1 truncate">Today's Visits</p>
               </div>
-              <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center text-xl shadow-inner">
+              <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center text-lg sm:text-xl shadow-inner shrink-0">
                 <i class="fa-solid fa-calendar-day"></i>
               </div>
             </div>
 
-            <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between hover-card">
-              <div>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">कुल सक्रिय अधिकारी</p>
-                <h3 id="stat-active-officers" class="text-2xl font-extrabold text-slate-900 mt-1">0</h3>
-                <p class="text-[10px] text-slate-400 font-bold mt-1">Active Officers</p>
+            <div class="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between hover-card">
+              <div class="min-w-0 pr-2">
+                <p class="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">कुल सक्रिय अधिकारी</p>
+                <h3 id="stat-active-officers" class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-0.5 sm:mt-1">0</h3>
+                <p class="text-[9px] sm:text-[10px] text-slate-400 font-bold mt-0.5 sm:mt-1 truncate">Active Officers</p>
               </div>
-              <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center text-xl shadow-inner">
+              <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center text-lg sm:text-xl shadow-inner shrink-0">
                 <i class="fa-solid fa-user-tie"></i>
               </div>
             </div>
 
-            <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between hover-card">
-              <div>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">कवर ग्राम पंचायत</p>
-                <h3 id="stat-covered-villages" class="text-2xl font-extrabold text-slate-900 mt-1">0</h3>
-                <p class="text-[10px] text-slate-400 font-bold mt-1">Panchayats Visited</p>
+            <div class="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between hover-card">
+              <div class="min-w-0 pr-2">
+                <p class="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">कवर ग्राम पंचायत</p>
+                <h3 id="stat-covered-villages" class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-0.5 sm:mt-1">0</h3>
+                <p class="text-[9px] sm:text-[10px] text-slate-400 font-bold mt-0.5 sm:mt-1 truncate">Panchayats Visited</p>
               </div>
-              <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center text-xl shadow-inner">
+              <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center text-lg sm:text-xl shadow-inner shrink-0">
                 <i class="fa-solid fa-map-pin"></i>
               </div>
             </div>
 
-            <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between hover-card">
-              <div>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">भौतिक निर्माण कार्य</p>
-                <h3 id="stat-physical-projects" class="text-2xl font-extrabold text-purple-600 mt-1">0</h3>
-                <p class="text-[10px] text-slate-400 font-bold mt-1">Construction Sites</p>
+            <div class="col-span-2 sm:col-span-2 md:col-span-1 xl:col-span-1 bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between hover-card">
+              <div class="min-w-0 pr-2">
+                <p class="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">भौतिक निर्माण कार्य</p>
+                <h3 id="stat-physical-projects" class="text-xl sm:text-2xl font-extrabold text-purple-600 mt-0.5 sm:mt-1">0</h3>
+                <p class="text-[9px] sm:text-[10px] text-slate-400 font-bold mt-0.5 sm:mt-1 truncate">Construction Sites</p>
               </div>
-              <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center text-xl shadow-inner">
+              <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center text-lg sm:text-xl shadow-inner shrink-0">
                 <i class="fa-solid fa-helmet-safety"></i>
               </div>
             </div>
           </div>
 
           <!-- Charts and Map Grid -->
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             <!-- Left 2 Columns: Charts -->
-            <div class="lg:col-span-2 space-y-6">
+            <div class="lg:col-span-2 space-y-4 sm:space-y-6">
               <!-- Department Count and Trend Chart -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                 <!-- Bar Chart: Dept wise counts -->
-                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                  <h4 class="text-xs font-extrabold text-slate-800 uppercase tracking-wide mb-4">विभाग-वार निरीक्षण गणना (Inspections by Department)</h4>
-                  <div class="h-64 relative">
+                <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm">
+                  <h4 class="text-xs font-extrabold text-slate-800 uppercase tracking-wide mb-3 sm:mb-4">विभाग-वार निरीक्षण गणना</h4>
+                  <div class="h-56 sm:h-64 relative">
                     <canvas id="chart-dept-counts"></canvas>
                   </div>
                 </div>
 
                 <!-- Doughnut Chart: Status breakdown -->
-                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                  <h4 class="text-xs font-extrabold text-slate-800 uppercase tracking-wide mb-4">निरीक्षण स्थिति (Submission Status)</h4>
-                  <div class="h-64 relative flex items-center justify-center">
+                <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm">
+                  <h4 class="text-xs font-extrabold text-slate-800 uppercase tracking-wide mb-3 sm:mb-4">निरीक्षण स्थिति (Status)</h4>
+                  <div class="h-56 sm:h-64 relative flex items-center justify-center">
                     <canvas id="chart-status-counts"></canvas>
                   </div>
                 </div>
               </div>
 
               <!-- Horizontal Bar Chart: Officer visit frequency -->
-              <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                <h4 class="text-xs font-extrabold text-slate-800 uppercase tracking-wide mb-4">अधिकारी-वार निरीक्षण गतिशीलता (Inspections by Officer)</h4>
-                <div class="h-80 relative">
+              <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm">
+                <h4 class="text-xs font-extrabold text-slate-800 uppercase tracking-wide mb-3 sm:mb-4">अधिकारी-वार निरीक्षण गतिशीलता (Inspections by Officer)</h4>
+                <div class="h-64 sm:h-80 relative">
                   <canvas id="chart-officer-counts"></canvas>
                 </div>
               </div>
             </div>
 
             <!-- Right Column: Recent Log & Mini Map -->
-            <div class="space-y-6">
+            <div class="space-y-4 sm:space-y-6">
               <!-- Dashboard Mini Map -->
-              <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+              <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm">
                 <h4 class="text-xs font-extrabold text-slate-800 uppercase tracking-wide mb-3 flex items-center justify-between">
-                  <span>निरीक्षण स्थल नक़्शा (Locations Map)</span>
+                  <span>निरीक्षण स्थल नक़्शा</span>
                   <button onclick="switchTab('map')" class="text-blue-500 text-[10px] font-extrabold uppercase hover:underline">विस्तृत नक़्शा देखें &rarr;</button>
                 </h4>
-                <div id="dashboard-mini-map" class="h-60 rounded-xl border border-slate-200 shadow-inner relative z-10"></div>
+                <div id="dashboard-mini-map" class="h-48 sm:h-60 rounded-xl border border-slate-200 shadow-inner relative z-10"></div>
               </div>
 
               <!-- Recent Inspections List -->
-              <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                <h4 class="text-xs font-extrabold text-slate-800 uppercase tracking-wide mb-4">हाल के निरीक्षण (Recent Inspections)</h4>
-                <div class="space-y-4 max-h-[30rem] overflow-y-auto pr-1" id="dashboard-recent-list">
+              <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm">
+                <h4 class="text-xs font-extrabold text-slate-800 uppercase tracking-wide mb-3 sm:mb-4">हाल के निरीक्षण (Recent Inspections)</h4>
+                <div class="space-y-3 sm:space-y-4 max-h-[22rem] sm:max-h-[30rem] overflow-y-auto pr-1" id="dashboard-recent-list">
                   <!-- Dynamic content -->
                 </div>
               </div>
@@ -252,15 +259,22 @@
         </section>
 
         <!-- ==================== GIS MAP VIEW ==================== -->
-        <section id="view-map" class="h-[calc(100vh-10rem)] hidden flex flex-col md:flex-row gap-5">
+        <section id="view-map" class="h-auto min-h-[550px] lg:h-[calc(100vh-8.5rem)] hidden flex flex-col lg:flex-row gap-3.5 sm:gap-5">
           <!-- Sidebar Filters -->
-          <div class="w-full md:w-80 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col shrink-0">
-            <h3 class="text-xs font-extrabold text-slate-850 uppercase tracking-wide mb-4 border-b border-slate-100 pb-3 flex items-center space-x-2">
-              <i class="fa-solid fa-sliders text-blue-500"></i>
-              <span>नक़्शा फ़िल्टर्स (GIS Filters)</span>
-            </h3>
+          <div class="w-full lg:w-80 bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col shrink-0">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+              <h3 class="text-xs font-extrabold text-slate-850 uppercase tracking-wide flex items-center space-x-2">
+                <i class="fa-solid fa-sliders text-blue-500"></i>
+                <span>नक़्शा फ़िल्टर्स (GIS Filters)</span>
+              </h3>
+              <!-- Mobile collapse button -->
+              <button type="button" onclick="toggleMapFiltersMobile()" class="lg:hidden text-[11px] font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg flex items-center space-x-1" id="map-filter-toggle-btn">
+                <i class="fa-solid fa-chevron-up text-[10px]" id="map-filter-toggle-icon"></i>
+                <span id="map-filter-toggle-text">छिपाएं</span>
+              </button>
+            </div>
 
-            <div class="space-y-4 flex-1 overflow-y-auto pr-1 no-scrollbar">
+            <div id="map-filters-body" class="space-y-3.5 sm:space-y-4 flex-1 overflow-y-auto pr-1 no-scrollbar block transition-all duration-200">
               <div>
                 <label for="map-search" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">संस्था / गाँव खोजें (Search)</label>
                 <div class="relative">
@@ -272,134 +286,136 @@
               </div>
 
               <div>
-                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">श्रेणियाँ (Categories)</label>
-                <div class="space-y-2 text-xs" id="map-category-toggles">
-                  <label class="flex items-center space-x-2.5 p-2 rounded-lg bg-blue-50/50 border border-blue-100 cursor-pointer">
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">श्रेणियाँ (Categories)</label>
+                <div class="grid grid-cols-2 lg:grid-cols-1 gap-2 text-xs" id="map-category-toggles">
+                  <label class="flex items-center space-x-2 p-2 rounded-lg bg-blue-50/50 border border-blue-100 cursor-pointer">
                     <input type="checkbox" checked value="school" onchange="filterMapMarkers()" class="w-4 h-4 rounded border-slate-350 text-blue-600 focus:ring-blue-500">
-                    <span class="font-semibold text-blue-900">Schools & Hostels</span>
+                    <span class="font-semibold text-blue-900 text-[11px] truncate">Schools</span>
                   </label>
-                  <label class="flex items-center space-x-2.5 p-2 rounded-lg bg-amber-50/50 border border-amber-100 cursor-pointer">
+                  <label class="flex items-center space-x-2 p-2 rounded-lg bg-amber-50/50 border border-amber-100 cursor-pointer">
                     <input type="checkbox" checked value="anganwadi" onchange="filterMapMarkers()" class="w-4 h-4 rounded border-slate-350 text-amber-600 focus:ring-amber-500">
-                    <span class="font-semibold text-amber-900">Anganwadi Centers</span>
+                    <span class="font-semibold text-amber-900 text-[11px] truncate">Anganwadi</span>
                   </label>
-                  <label class="flex items-center space-x-2.5 p-2 rounded-lg bg-emerald-50/50 border border-emerald-100 cursor-pointer">
+                  <label class="flex items-center space-x-2 p-2 rounded-lg bg-emerald-50/50 border border-emerald-100 cursor-pointer">
                     <input type="checkbox" checked value="health" onchange="filterMapMarkers()" class="w-4 h-4 rounded border-slate-350 text-emerald-600 focus:ring-emerald-500">
-                    <span class="font-semibold text-emerald-900">Health Centers</span>
+                    <span class="font-semibold text-emerald-900 text-[11px] truncate">Health</span>
                   </label>
-                  <label class="flex items-center space-x-2.5 p-2 rounded-lg bg-rose-50/50 border border-rose-100 cursor-pointer">
+                  <label class="flex items-center space-x-2 p-2 rounded-lg bg-rose-50/50 border border-rose-100 cursor-pointer">
                     <input type="checkbox" checked value="veterinary" onchange="filterMapMarkers()" class="w-4 h-4 rounded border-slate-350 text-rose-600 focus:ring-rose-500">
-                    <span class="font-semibold text-rose-900">Veterinary Clinics</span>
+                    <span class="font-semibold text-rose-900 text-[11px] truncate">Veterinary</span>
                   </label>
                 </div>
               </div>
 
-              <div>
-                <label for="map-block-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">विकासखंड फ़िल्टर (Block)</label>
-                <select id="map-block-filter" onchange="onMapBlockChanged()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                  <option value="">सभी विकासखंड (All Blocks)</option>
-                  <option value="DANTEWADA">दंतेवाड़ा (Dantewada)</option>
-                  <option value="GEEDAM">गीदम (Geedam)</option>
-                  <option value="KATEKALYAN">कटेकल्याण (Katekalyan)</option>
-                  <option value="KUAKONDA">कुआकोंडा (Kuakonda)</option>
-                </select>
-              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
+                <div>
+                  <label for="map-block-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">विकासखंड फ़िल्टर (Block)</label>
+                  <select id="map-block-filter" onchange="onMapBlockChanged()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">सभी विकासखंड (All Blocks)</option>
+                    <option value="DANTEWADA">दंतेवाड़ा (Dantewada)</option>
+                    <option value="GEEDAM">गीदम (Geedam)</option>
+                    <option value="KATEKALYAN">कटेकल्याण (Katekalyan)</option>
+                    <option value="KUAKONDA">कुआकोंडा (Kuakonda)</option>
+                  </select>
+                </div>
 
-              <div>
-                <label for="map-panchayat-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">ग्राम पंचायत (Panchayat)</label>
-                <select id="map-panchayat-filter" onchange="onMapPanchayatChanged()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                  <option value="">सभी ग्राम पंचायत (All GPs)</option>
-                </select>
-              </div>
+                <div>
+                  <label for="map-panchayat-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">ग्राम पंचायत (Panchayat)</label>
+                  <select id="map-panchayat-filter" onchange="onMapPanchayatChanged()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">सभी ग्राम पंचायत (All GPs)</option>
+                  </select>
+                </div>
 
-              <div>
-                <label for="map-village-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">ग्राम / गाँव (Village)</label>
-                <select id="map-village-filter" onchange="filterMapMarkers()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                  <option value="">सभी ग्राम (All Villages)</option>
-                </select>
-              </div>
+                <div>
+                  <label for="map-village-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">ग्राम / गाँव (Village)</label>
+                  <select id="map-village-filter" onchange="filterMapMarkers()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">सभी ग्राम (All Villages)</option>
+                  </select>
+                </div>
 
-              <div>
-                <label for="map-inspection-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">निरीक्षण स्थिति (Visits)</label>
-                <select id="map-inspection-filter" onchange="filterMapMarkers()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                  <option value="all">सभी संस्थाएं (All Facilities)</option>
-                  <option value="visited">निरीक्षण हो चुके (Inspected Only)</option>
-                  <option value="unvisited">बिना निरीक्षण वाले (Never Inspected)</option>
-                </select>
+                <div>
+                  <label for="map-inspection-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">निरीक्षण स्थिति (Visits)</label>
+                  <select id="map-inspection-filter" onchange="filterMapMarkers()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="all">सभी संस्थाएं (All Facilities)</option>
+                    <option value="visited">निरीक्षण हो चुके (Inspected Only)</option>
+                    <option value="unvisited">बिना निरीक्षण वाले (Never Inspected)</option>
+                  </select>
+                </div>
               </div>
             </div>
             
-            <div class="mt-4 pt-3 border-t border-slate-100 text-[10px] text-slate-450 font-semibold" id="map-marker-stats">
+            <div class="mt-3 pt-3 border-t border-slate-100 text-[10px] text-slate-450 font-semibold" id="map-marker-stats">
               दिखाए जा रहे हैं: 0 / 0 संस्थाएं
             </div>
           </div>
 
           <!-- Leaflet Map Container -->
-          <div class="flex-1 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden relative">
+          <div class="flex-1 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden relative min-h-[350px] lg:min-h-0">
             <div id="map" class="w-full h-full relative z-10"></div>
           </div>
         </section>
 
         <!-- ==================== NEW INSPECTION VIEW ==================== -->
         <section id="view-new-inspection" class="max-w-4xl mx-auto hidden">
-          <form id="inspection-dynamic-form" onsubmit="handleFormSubmit(event)" class="space-y-6">
+          <form id="inspection-dynamic-form" onsubmit="handleFormSubmit(event)" class="space-y-4 sm:space-y-6">
             <input type="hidden" id="form-dept-id">
             
             <!-- Step 1: Inspecting Officer Information (Top text fields) -->
-            <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
-              <div class="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 space-y-4 sm:space-y-5">
+              <div class="border-b border-slate-100 pb-3 sm:pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div>
-                  <h3 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide flex items-center space-x-2">
+                  <h3 class="text-xs sm:text-sm font-extrabold text-slate-800 uppercase tracking-wide flex items-center space-x-2">
                     <i class="fa-solid fa-user-tie text-blue-600"></i>
-                    <span>1. निरीक्षण अधिकारी विवरण (Inspecting Officer Details)</span>
+                    <span>1. निरीक्षण अधिकारी विवरण (Officer Details)</span>
                   </h3>
-                  <p class="text-xs text-slate-450 mt-1">निरीक्षण करने वाले अधिकारी का नाम, पदनाम एवं मोबाइल नंबर दर्ज करें।</p>
+                  <p class="text-[11px] sm:text-xs text-slate-450 mt-1">निरीक्षण करने वाले अधिकारी का नाम, पदनाम एवं मोबाइल नंबर दर्ज करें।</p>
                 </div>
                 <!-- Profile Status indicator -->
-                <div id="officer-cached-badge" class="hidden items-center space-x-1.5 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-[11px] font-bold border border-emerald-200 shrink-0">
+                <div id="officer-cached-badge" class="hidden items-center space-x-1.5 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-bold border border-emerald-200 shrink-0 self-start sm:self-auto">
                   <i class="fa-solid fa-circle-check text-emerald-500"></i>
                   <span>पूर्व विवरण स्वतः लोड</span>
                 </div>
               </div>
 
               <!-- Officer Active Info Preview (when cached) -->
-              <div id="officer-preview-card" class="hidden bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-slate-50 border border-blue-100 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div class="flex items-center space-x-3.5">
-                  <div class="w-11 h-11 rounded-xl bg-blue-600 text-white flex items-center justify-center text-lg font-bold shadow-md shadow-blue-500/20 shrink-0">
+              <div id="officer-preview-card" class="hidden bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-slate-50 border border-blue-100 rounded-xl p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div class="flex items-center space-x-3 sm:space-x-3.5">
+                  <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-blue-600 text-white flex items-center justify-center text-base sm:text-lg font-bold shadow-md shadow-blue-500/20 shrink-0">
                     <i class="fa-solid fa-user-check"></i>
                   </div>
-                  <div>
+                  <div class="min-w-0 flex-1">
                     <div class="flex items-center space-x-2 flex-wrap">
-                      <span id="officer-preview-name" class="text-sm font-extrabold text-slate-900"></span>
-                      <span id="officer-preview-designation" class="text-[11px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md"></span>
+                      <span id="officer-preview-name" class="text-xs sm:text-sm font-extrabold text-slate-900 truncate"></span>
+                      <span id="officer-preview-designation" class="text-[10px] sm:text-[11px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md"></span>
                     </div>
-                    <div class="flex items-center space-x-3 text-xs text-slate-500 mt-1 font-medium">
-                      <span><i class="fa-solid fa-phone text-slate-400 mr-1 text-[11px]"></i><span id="officer-preview-phone"></span></span>
-                      <span class="text-[11px] text-emerald-600 font-semibold">• पूर्व निरीक्षण डेटा से सक्रिय</span>
+                    <div class="flex items-center space-x-2 sm:space-x-3 text-[11px] sm:text-xs text-slate-500 mt-0.5 font-medium flex-wrap">
+                      <span><i class="fa-solid fa-phone text-slate-400 mr-1 text-[10px]"></i><span id="officer-preview-phone"></span></span>
+                      <span class="text-[10px] sm:text-[11px] text-emerald-600 font-semibold">• सक्रिय अधिकारी</span>
                     </div>
                   </div>
                 </div>
-                <button type="button" onclick="toggleOfficerEditMode(true)" class="self-start sm:self-center px-3.5 py-1.5 text-xs font-bold text-blue-600 bg-white hover:bg-blue-50 border border-blue-200 rounded-lg shadow-sm transition-colors flex items-center space-x-1.5">
+                <button type="button" onclick="toggleOfficerEditMode(true)" class="self-start sm:self-center px-3 py-1.5 text-xs font-bold text-blue-600 bg-white hover:bg-blue-50 border border-blue-200 rounded-lg shadow-sm transition-colors flex items-center space-x-1.5">
                   <i class="fa-solid fa-pen-to-square"></i>
-                  <span>विवरण बदलें (Edit)</span>
+                  <span>बदलें (Edit)</span>
                 </button>
               </div>
 
               <!-- Text Inputs Container -->
-              <div id="officer-input-fields" class="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div id="officer-input-fields" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 sm:gap-5">
                 <div>
-                  <label for="form-officer-name" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">
+                  <label for="form-officer-name" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">
                     अधिकारी का नाम (Officer Name) <span class="text-red-500">*</span>
                   </label>
                   <div class="relative">
                     <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-xs">
                       <i class="fa-solid fa-user"></i>
                     </span>
-                    <input type="text" id="form-officer-name" required placeholder="अपना पूरा नाम दर्ज करें..." class="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
+                    <input type="text" id="form-officer-name" required placeholder="पूरा नाम दर्ज करें..." class="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
                   </div>
                 </div>
 
                 <div>
-                  <label for="form-officer-designation" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">
+                  <label for="form-officer-designation" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">
                     पद / पदनाम (Designation) <span class="text-red-500">*</span>
                   </label>
                   <div class="relative">
@@ -410,9 +426,9 @@
                   </div>
                 </div>
 
-                <div>
-                  <label for="form-officer-phone" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">
-                    मोबाइल / फोन नंबर (Phone Number) <span class="text-red-500">*</span>
+                <div class="sm:col-span-2 md:col-span-1">
+                  <label for="form-officer-phone" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">
+                    मोबाइल / फोन नंबर (Phone) <span class="text-red-500">*</span>
                   </label>
                   <div class="relative">
                     <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-xs">
@@ -425,18 +441,18 @@
             </div>
 
             <!-- Step 2: Location details (Block, village selection) -->
-            <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
-              <div class="border-b border-slate-100 pb-4">
-                <h3 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide flex items-center space-x-2">
+            <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 space-y-4 sm:space-y-6">
+              <div class="border-b border-slate-100 pb-3 sm:pb-4">
+                <h3 class="text-xs sm:text-sm font-extrabold text-slate-800 uppercase tracking-wide flex items-center space-x-2">
                   <i class="fa-solid fa-map-location-dot text-blue-500"></i>
                   <span>2. स्थान विवरण (Location Details)</span>
                 </h3>
-                <p class="text-xs text-slate-450 mt-1">निरीक्षण विभाग एवं क्षेत्र (ब्लॉक, ग्राम पंचायत, गाँव) का चयन करें।</p>
+                <p class="text-[11px] sm:text-xs text-slate-450 mt-1">निरीक्षण विभाग एवं क्षेत्र (ब्लॉक, ग्राम पंचायत, गाँव) का चयन करें।</p>
               </div>
 
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-5">
                 <div>
-                  <label for="form-select-dept" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">विभाग (Department) <span class="text-red-500">*</span></label>
+                  <label for="form-select-dept" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">विभाग (Department) <span class="text-red-500">*</span></label>
                   <select id="form-select-dept" onchange="onFormDeptChanged(this.value)" required class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                     <option value="">-- विभाग का चयन करें (Select Dept) --</option>
                     <option value="1">शाला / आश्रम / छात्रावास विभाग (School & Hostel)</option>
@@ -448,7 +464,7 @@
                 </div>
 
                 <div>
-                  <label for="form-select-block" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">जनपद / विकासखंड (Block) <span class="text-red-500">*</span></label>
+                  <label for="form-select-block" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">जनपद / विकासखंड (Block) <span class="text-red-500">*</span></label>
                   <select id="form-select-block" onchange="onFormBlockChanged()" required class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                     <option value="">-- विकासखंड का चयन करें (Select Block) --</option>
                     <option value="DANTEWADA">दंतेवाड़ा (Dantewada)</option>
@@ -459,14 +475,14 @@
                 </div>
 
                 <div>
-                  <label for="form-select-panchayat" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">ग्राम पंचायत (Gram Panchayat) <span class="text-red-500">*</span></label>
+                  <label for="form-select-panchayat" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">ग्राम पंचायत (Gram Panchayat) <span class="text-red-500">*</span></label>
                   <select id="form-select-panchayat" onchange="onFormPanchayatChanged()" required class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                     <option value="">-- पहले विकासखंड चुनें (Select Block first) --</option>
                   </select>
                 </div>
 
                 <div>
-                  <label for="form-select-village" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">ग्राम / गाँव (Village) <span class="text-red-500">*</span></label>
+                  <label for="form-select-village" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">ग्राम / गाँव (Village) <span class="text-red-500">*</span></label>
                   <select id="form-select-village" onchange="onFormVillageChanged()" required class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                     <option value="">-- पहले ग्राम पंचायत चुनें (Select GP first) --</option>
                   </select>
@@ -475,17 +491,17 @@
 
                 <!-- Geolocation coordinates (capture live or enter manual) -->
                 <div>
-                  <label class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">भौगोलिक निर्देशांक (GPS Coordinates)</label>
-                  <div class="flex space-x-2">
+                  <label class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">भौगोलिक निर्देशांक (GPS Coordinates)</label>
+                  <div class="flex space-x-1.5 sm:space-x-2">
                     <div class="relative flex-1">
-                      <span class="absolute inset-y-0 left-0 flex items-center pl-2.5 text-[10px] font-bold text-slate-400">Lat:</span>
-                      <input type="number" step="any" id="form-gps-lat" placeholder="18.9000" class="w-full text-xs pl-9 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
+                      <span class="absolute inset-y-0 left-0 flex items-center pl-2 text-[9px] sm:text-[10px] font-bold text-slate-400">Lat:</span>
+                      <input type="number" step="any" id="form-gps-lat" placeholder="18.9000" class="w-full text-xs pl-7 sm:pl-9 pr-1.5 sm:pr-2 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
                     </div>
                     <div class="relative flex-1">
-                      <span class="absolute inset-y-0 left-0 flex items-center pl-2.5 text-[10px] font-bold text-slate-400">Lng:</span>
-                      <input type="number" step="any" id="form-gps-lng" placeholder="81.3500" class="w-full text-xs pl-9 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
+                      <span class="absolute inset-y-0 left-0 flex items-center pl-2 text-[9px] sm:text-[10px] font-bold text-slate-400">Lng:</span>
+                      <input type="number" step="any" id="form-gps-lng" placeholder="81.3500" class="w-full text-xs pl-7 sm:pl-9 pr-1.5 sm:pr-2 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
                     </div>
-                    <button type="button" onclick="captureGPS()" class="bg-blue-600 hover:bg-blue-750 text-white px-3.5 py-2 rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-blue-500/10 transition-colors">
+                    <button type="button" onclick="captureGPS()" class="bg-blue-600 hover:bg-blue-750 text-white px-2.5 sm:px-3.5 py-2 rounded-lg text-xs font-bold flex items-center space-x-1 shadow-md shadow-blue-500/10 transition-colors shrink-0">
                       <i class="fa-solid fa-location-crosshairs"></i>
                       <span class="hidden sm:inline">जीपीएस</span>
                     </button>
@@ -493,7 +509,7 @@
                 </div>
 
                 <div>
-                  <label for="form-input-date" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">निरीक्षण दिनांक (Inspection Date - DD/MM/YYYY) <span class="text-red-500">*</span></label>
+                  <label for="form-input-date" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">निरीक्षण दिनांक (Date - DD/MM/YYYY) <span class="text-red-500">*</span></label>
                   <div class="relative">
                     <input type="text" id="form-input-date" required placeholder="DD/MM/YYYY" class="w-full text-xs pl-3 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
                     <button type="button" onclick="triggerDatePicker()" title="कैलेंडर से दिनांक चुनें" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-blue-600 transition-colors">
@@ -506,68 +522,68 @@
             </div>
 
             <!-- Step 3: Dynamic Parameters Checklist -->
-            <div id="form-parameters-card" class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6 hidden">
-              <div class="border-b border-slate-100 pb-4">
-                <h3 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide flex items-center space-x-2">
+            <div id="form-parameters-card" class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 space-y-4 sm:space-y-6 hidden">
+              <div class="border-b border-slate-100 pb-3 sm:pb-4">
+                <h3 class="text-xs sm:text-sm font-extrabold text-slate-800 uppercase tracking-wide flex items-center space-x-2">
                   <i class="fa-solid fa-list-check text-blue-500"></i>
                   <span>3. निरीक्षण मापदंड (Inspection Parameters Checklist)</span>
                 </h3>
-                <p class="text-xs text-slate-450 mt-1">विभाग-वार मापदंडों का सत्यापन विवरण भरें।</p>
+                <p class="text-[11px] sm:text-xs text-slate-450 mt-1">विभाग-वार मापदंडों का सत्यापन विवरण भरें।</p>
               </div>
 
               <!-- Dynamically populated parameters grid -->
-              <div id="form-parameters-fields" class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div id="form-parameters-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                 <!-- Javascript will load the form elements here -->
               </div>
             </div>
 
             <!-- Step 4: Remarks and Photo Upload -->
-            <div id="form-media-card" class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6 hidden">
-              <div class="border-b border-slate-100 pb-4">
-                <h3 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide flex items-center space-x-2">
+            <div id="form-media-card" class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 space-y-4 sm:space-y-6 hidden">
+              <div class="border-b border-slate-100 pb-3 sm:pb-4">
+                <h3 class="text-xs sm:text-sm font-extrabold text-slate-800 uppercase tracking-wide flex items-center space-x-2">
                   <i class="fa-solid fa-camera text-blue-500"></i>
                   <span>4. अधिकारी टीप एवं फोटोग्राफ (Remarks & Photos)</span>
                 </h3>
-                <p class="text-xs text-slate-450 mt-1">अधिकारी का विशेष अभिमत टिप्पणी दर्ज करें और निरीक्षण की तस्वीरें संलग्न करें।</p>
+                <p class="text-[11px] sm:text-xs text-slate-450 mt-1">अधिकारी का विशेष अभिमत टिप्पणी दर्ज करें और निरीक्षण की तस्वीरें संलग्न करें।</p>
               </div>
 
               <div class="space-y-4">
                 <div>
-                  <label for="form-input-remarks" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">निरीक्षण टिप्पणी / टीप (Overall Remarks) <span class="text-red-500">*</span></label>
+                  <label for="form-input-remarks" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">निरीक्षण टिप्पणी / टीप (Overall Remarks) <span class="text-red-500">*</span></label>
                   <textarea id="form-input-remarks" required rows="3" placeholder="भ्रमण के दौरान पाए गए प्रमुख बिंदु, सुधार की आवश्यकता, या विशेष निर्देश यहाँ दर्ज करें..." class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700"></textarea>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                   <!-- Inspection Photo -->
                   <div>
-                    <label class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">निरीक्षण फोटोग्राफ (Inspection Photo)</label>
-                    <div class="flex items-center space-x-4 border border-dashed border-slate-200 rounded-xl p-4 bg-slate-50">
-                      <div class="w-16 h-16 rounded-lg bg-slate-200 border border-slate-300 flex items-center justify-center text-slate-400 overflow-hidden shrink-0" id="photo-preview-box">
-                        <i class="fa-solid fa-image text-xl"></i>
+                    <label class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">निरीक्षण फोटोग्राफ (Inspection Photo)</label>
+                    <div class="flex items-center space-x-3 sm:space-x-4 border border-dashed border-slate-200 rounded-xl p-3 sm:p-4 bg-slate-50">
+                      <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-lg bg-slate-200 border border-slate-300 flex items-center justify-center text-slate-400 overflow-hidden shrink-0" id="photo-preview-box">
+                        <i class="fa-solid fa-image text-lg sm:text-xl"></i>
                       </div>
-                      <div class="flex-1">
+                      <div class="flex-1 min-w-0">
                         <input type="file" id="form-file-photo" accept="image/*" onchange="previewImage(this, 'photo-preview-box')" class="hidden">
                         <button type="button" onclick="document.getElementById('form-file-photo').click()" class="bg-white hover:bg-slate-100 text-slate-700 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold shadow-sm transition-colors">
                           <i class="fa-solid fa-upload mr-1"></i> फोटो चुनें
                         </button>
-                        <p class="text-[9px] text-slate-450 mt-1">कैमरे से फोटो लें या जेपीईजी फाइल अपलोड करें।</p>
+                        <p class="text-[9px] text-slate-450 mt-1">कैमरा / गैलरी से फोटो जोड़ें।</p>
                       </div>
                     </div>
                   </div>
 
                   <!-- Action taken by department -->
                   <div>
-                    <label class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">विभाग द्वारा की गई कार्यवाही फ़ोटो (Action Taken Photo)</label>
-                    <div class="flex items-center space-x-4 border border-dashed border-slate-200 rounded-xl p-4 bg-slate-50">
-                      <div class="w-16 h-16 rounded-lg bg-slate-200 border border-slate-300 flex items-center justify-center text-slate-400 overflow-hidden shrink-0" id="action-photo-preview-box">
-                        <i class="fa-solid fa-image text-xl"></i>
+                    <label class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">विभाग कार्यवाही फ़ोटो (Action Taken Photo)</label>
+                    <div class="flex items-center space-x-3 sm:space-x-4 border border-dashed border-slate-200 rounded-xl p-3 sm:p-4 bg-slate-50">
+                      <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-lg bg-slate-200 border border-slate-300 flex items-center justify-center text-slate-400 overflow-hidden shrink-0" id="action-photo-preview-box">
+                        <i class="fa-solid fa-image text-lg sm:text-xl"></i>
                       </div>
-                      <div class="flex-1">
+                      <div class="flex-1 min-w-0">
                         <input type="file" id="form-file-action-photo" accept="image/*" onchange="previewImage(this, 'action-photo-preview-box')" class="hidden">
                         <button type="button" onclick="document.getElementById('form-file-action-photo').click()" class="bg-white hover:bg-slate-100 text-slate-700 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold shadow-sm transition-colors">
                           <i class="fa-solid fa-upload mr-1"></i> फोटो चुनें
                         </button>
-                        <p class="text-[9px] text-slate-450 mt-1">(वैकल्पिक) विभाग द्वारा किए गए सुधारात्मक कार्य की फ़ोटो।</p>
+                        <p class="text-[9px] text-slate-450 mt-1">(वैकल्पिक) सुधारात्मक कार्य फ़ोटो।</p>
                       </div>
                     </div>
                   </div>
@@ -576,18 +592,18 @@
             </div>
 
             <!-- Form Action buttons -->
-            <div class="flex items-center justify-between pt-4 pb-12 btn-action-container no-print">
-              <div class="text-[11px] text-slate-400 italic flex items-center space-x-1.5">
+            <div class="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 sm:pt-4 pb-12 btn-action-container no-print">
+              <div class="text-[11px] text-slate-400 italic flex items-center justify-center sm:justify-start space-x-1.5">
                 <i class="fa-solid fa-cloud-arrow-up text-emerald-500 animate-pulse"></i>
-                <span id="form-draft-status">प्रारूप स्वतः सहेजा जा रहा है (Auto-Saved)</span>
+                <span id="form-draft-status">प्रारूप स्वतः सहेजा जा रहा है</span>
               </div>
-              <div class="flex items-center space-x-3">
-                <button type="button" onclick="clearCurrentForm()" class="px-4 py-2 text-xs font-semibold text-slate-650 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl shadow-sm transition-colors">
-                  प्रपत्र खाली करें (Clear Form)
+              <div class="flex items-center space-x-2.5 sm:space-x-3">
+                <button type="button" onclick="clearCurrentForm()" class="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 text-xs font-semibold text-slate-650 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl shadow-sm transition-colors text-center">
+                  खाली करें (Clear)
                 </button>
-                <button type="submit" class="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-750 rounded-xl shadow-md flex items-center space-x-1.5 transition-colors shadow-blue-500/10">
+                <button type="submit" class="flex-1 sm:flex-none px-5 py-2.5 sm:py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-750 rounded-xl shadow-md flex items-center justify-center space-x-1.5 transition-colors shadow-blue-500/10 text-center">
                   <i class="fa-solid fa-circle-check"></i>
-                  <span>निरीक्षण सहेजें (Submit Inspection)</span>
+                  <span>निरीक्षण सहेजें (Submit)</span>
                 </button>
               </div>
             </div>
@@ -595,29 +611,29 @@
         </section>
 
         <!-- ==================== INSPECTION VISITS & TIMELINE ==================== -->
-        <section id="view-physical" class="space-y-6 hidden">
+        <section id="view-physical" class="space-y-4 sm:space-y-6 hidden">
           <!-- Intro header -->
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
             <div>
-              <h3 class="text-sm font-extrabold text-slate-850 uppercase tracking-wide flex items-center space-x-2">
+              <h3 class="text-xs sm:text-sm font-extrabold text-slate-850 uppercase tracking-wide flex items-center space-x-2">
                 <i class="fa-solid fa-clipboard-check text-blue-600"></i>
-                <span>निरीक्षण रिपोर्ट एवं विज़िट समय-रेखा (Inspection Visits & Timeline)</span>
+                <span>निरीक्षण रिपोर्ट एवं विज़िट समय-रेखा (Visits & Timeline)</span>
               </h3>
-              <p class="text-xs text-slate-450 mt-1">प्रत्येक निरीक्षण स्थल की समय-वार विज़िट रिपोर्ट (Visit 1, Visit 2...), विज़िट फ़ोटो एवं दिनांक की विस्तृत तालिका।</p>
+              <p class="text-[11px] sm:text-xs text-slate-450 mt-0.5 sm:mt-1">प्रत्येक निरीक्षण स्थल की समय-वार विज़िट रिपोर्ट (Visit 1, Visit 2...), विज़िट फ़ोटो एवं दिनांक तालिका।</p>
             </div>
-            <div class="flex items-center space-x-3">
-              <button onclick="switchTab('new-inspection')" class="bg-blue-600 hover:bg-blue-750 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-blue-500/10 transition-colors">
-                <i class="fa-solid fa-plus text-sm"></i>
-                <span>+ नया निरीक्षण (New Inspection)</span>
+            <div class="flex items-center space-x-3 self-start sm:self-auto">
+              <button onclick="switchTab('new-inspection')" class="bg-blue-600 hover:bg-blue-750 text-white px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-blue-500/10 transition-colors">
+                <i class="fa-solid fa-plus text-xs sm:text-sm"></i>
+                <span>+ नया निरीक्षण</span>
               </button>
             </div>
           </div>
 
           <!-- Filter Matrix Card -->
-          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              <div class="lg:col-span-2">
-                <label for="timeline-search" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">खोजें (Search)</label>
+          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-5">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
+              <div class="sm:col-span-2 lg:col-span-2">
+                <label for="timeline-search" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">खोजें (Search)</label>
                 <div class="relative">
                   <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-xs">
                     <i class="fa-solid fa-magnifying-glass"></i>
@@ -627,7 +643,7 @@
               </div>
 
               <div>
-                <label for="timeline-dept-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">विभाग (Department)</label>
+                <label for="timeline-dept-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">विभाग (Department)</label>
                 <select id="timeline-dept-filter" onchange="renderInspectionTimelineTable()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                   <option value="">सभी विभाग (All)</option>
                   <option value="1">School & Hostel</option>
@@ -639,7 +655,7 @@
               </div>
 
               <div>
-                <label for="timeline-block-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">ब्लॉक (Block)</label>
+                <label for="timeline-block-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">ब्लॉक (Block)</label>
                 <select id="timeline-block-filter" onchange="onTimelineBlockChanged()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                   <option value="">सभी विकासखंड (All Blocks)</option>
                   <option value="DANTEWADA">दंतेवाड़ा (Dantewada)</option>
@@ -650,7 +666,7 @@
               </div>
 
               <div>
-                <label for="timeline-panchayat-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">ग्राम पंचायत (GP)</label>
+                <label for="timeline-panchayat-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">ग्राम पंचायत (GP)</label>
                 <select id="timeline-panchayat-filter" onchange="onTimelinePanchayatChanged()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                   <option value="">सभी पंचायतें (All GPs)</option>
                 </select>
@@ -659,7 +675,7 @@
               <div class="flex items-end">
                 <button type="button" onclick="clearTimelineFilters()" class="w-full text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 py-2 px-3 rounded-lg transition-colors flex items-center justify-center space-x-1">
                   <i class="fa-solid fa-rotate-left"></i>
-                  <span>रीसेट</span>
+                  <span>रीसेट (Reset)</span>
                 </button>
               </div>
             </div>
@@ -667,19 +683,19 @@
 
           <!-- Horizontal Timeline Matrix Table Container -->
           <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
-            <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div class="p-3.5 sm:p-4 border-b border-slate-100 flex flex-col xs:flex-row xs:items-center justify-between gap-2 bg-slate-50/50">
               <div class="flex items-center space-x-2">
-                <span class="text-xs font-extrabold text-slate-750 uppercase tracking-wider">निरीक्षण समय-रेखा मैट्रिक्स (Visits Matrix)</span>
-                <span id="timeline-count-badge" class="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-extrabold rounded-full">0 निरीक्षण स्थल</span>
+                <span class="text-xs font-extrabold text-slate-750 uppercase tracking-wider">समय-रेखा मैट्रिक्स</span>
+                <span id="timeline-count-badge" class="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-extrabold rounded-full">0 स्थल</span>
               </div>
-              <div class="text-[11px] text-slate-400 font-medium hidden sm:flex items-center space-x-1">
-                <i class="fa-solid fa-arrow-right text-[10px]"></i>
-                <span>अग्रिम विज़िट्स दाईं तरफ देखें (Scroll right for more visits)</span>
+              <div class="text-[10px] sm:text-[11px] text-slate-400 font-medium flex items-center space-x-1">
+                <i class="fa-solid fa-arrow-right text-[9px]"></i>
+                <span>अग्रिम विज़िट्स दाईं ओर स्क्रॉल करें</span>
               </div>
             </div>
 
             <!-- Horizontally scrollable table -->
-            <div class="overflow-x-auto w-full custom-scroll" id="inspection-timeline-scroll-wrapper">
+            <div class="overflow-x-auto w-full custom-scroll table-responsive" id="inspection-timeline-scroll-wrapper">
               <table class="w-full text-left border-collapse" id="inspection-timeline-table">
                 <thead id="timeline-table-head" class="bg-slate-50 text-[10px] font-extrabold text-slate-450 uppercase tracking-wider border-b border-slate-150 sticky top-0 z-10">
                   <!-- Generated dynamically based on max visits -->
@@ -704,24 +720,24 @@
         </section>
 
         <!-- ==================== REPORTS VIEW ==================== -->
-        <section id="view-reports" class="space-y-6 hidden">
+        <section id="view-reports" class="space-y-4 sm:space-y-6 hidden">
           <!-- Filter Panel Card -->
-          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-            <h4 class="text-xs font-extrabold text-slate-800 uppercase tracking-wide mb-4 flex items-center space-x-2">
+          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-5">
+            <h4 class="text-xs font-extrabold text-slate-800 uppercase tracking-wide mb-3 sm:mb-4 flex items-center space-x-2">
               <i class="fa-solid fa-filter text-blue-500"></i>
               <span>निरीक्षण रिपोर्ट खोज एवं फ़िल्टर (Search & Filter Matrix)</span>
             </h4>
             
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5 sm:gap-3">
               <div>
-                <label for="report-search" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">खोजें (Search Keyword)</label>
+                <label for="report-search" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">खोजें (Search)</label>
                 <input type="text" id="report-search" oninput="filterReportsTable()" placeholder="संस्था, गाँव, टिप्पणी..." class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
               </div>
 
               <div>
-                <label for="report-dept-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">विभाग (Department)</label>
+                <label for="report-dept-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">विभाग (Dept)</label>
                 <select id="report-dept-filter" onchange="filterReportsTable()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                  <option value="">सभी विभाग (All Departments)</option>
+                  <option value="">सभी विभाग (All)</option>
                   <option value="1">School & Hostel</option>
                   <option value="2">Health Department</option>
                   <option value="3">Anganwadi Center</option>
@@ -731,17 +747,17 @@
               </div>
 
               <div>
-                <label for="report-officer-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">अधिकारी (Officer)</label>
+                <label for="report-officer-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">अधिकारी (Officer)</label>
                 <select id="report-officer-filter" onchange="filterReportsTable()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                  <option value="">सभी अधिकारी (All Officers)</option>
+                  <option value="">सभी अधिकारी (All)</option>
                   <!-- Dynamically populated -->
                 </select>
               </div>
 
               <div>
-                <label for="report-block-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">विकासखंड (Block)</label>
+                <label for="report-block-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">विकासखंड (Block)</label>
                 <select id="report-block-filter" onchange="onReportBlockChanged()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                  <option value="">सभी विकासखंड (All Blocks)</option>
+                  <option value="">सभी विकासखंड (All)</option>
                   <option value="DANTEWADA">दंतेवाड़ा (Dantewada)</option>
                   <option value="GEEDAM">गीदम (Geedam)</option>
                   <option value="KATEKALYAN">कटेकल्याण (Katekalyan)</option>
@@ -750,25 +766,25 @@
               </div>
 
               <div>
-                <label for="report-panchayat-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">ग्राम पंचायत (Panchayat)</label>
+                <label for="report-panchayat-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">ग्राम पंचायत (GP)</label>
                 <select id="report-panchayat-filter" onchange="onReportPanchayatChanged()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                  <option value="">सभी ग्राम पंचायत (All GPs)</option>
+                  <option value="">सभी ग्राम पंचायत (All)</option>
                   <!-- Dynamically populated -->
                 </select>
               </div>
 
               <div>
-                <label for="report-village-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">आश्रित ग्राम (Village)</label>
+                <label for="report-village-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">आश्रित ग्राम (Village)</label>
                 <select id="report-village-filter" onchange="filterReportsTable()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                   <option value="">सभी ग्राम (All Villages)</option>
                   <!-- Dynamically populated -->
                 </select>
               </div>
 
-              <div class="flex items-end justify-between space-x-2">
+              <div class="flex items-end justify-between space-x-2 sm:col-span-2 md:col-span-1 lg:col-span-1">
                 <button onclick="exportReportsCSV()" class="flex-1 bg-slate-800 hover:bg-slate-750 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 shadow-sm transition-colors" title="CSV में निर्यात करें">
                   <i class="fa-solid fa-file-csv text-sm"></i>
-                  <span>Export CSV</span>
+                  <span>Export</span>
                 </button>
                 <button onclick="clearReportsFilters()" class="bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 px-3 py-2 rounded-lg text-xs font-semibold shadow-sm transition-colors" title="फ़िल्टर साफ़ करें">
                   <i class="fa-solid fa-trash-can"></i>
@@ -779,17 +795,17 @@
 
           <!-- Reports Log Table Card -->
           <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-            <div class="overflow-x-auto">
-              <table class="w-full text-left border-collapse">
+            <div class="overflow-x-auto table-responsive custom-scroll">
+              <table class="w-full text-left border-collapse min-w-[700px]">
                 <thead>
                   <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-extrabold text-[10px] uppercase tracking-wider">
-                    <th class="px-6 py-3.5">दिनांक (Date)</th>
-                    <th class="px-6 py-3.5">विभाग (Department)</th>
-                    <th class="px-6 py-3.5">गाँव / विकासखंड (Block / Village)</th>
-                    <th class="px-6 py-3.5">शासकीय संस्था (Facility)</th>
-                    <th class="px-6 py-3.5">अधिकारी (Officer)</th>
-                    <th class="px-6 py-3.5">स्थिति (Status)</th>
-                    <th class="px-6 py-3.5 text-right">विवरण (Actions)</th>
+                    <th class="px-4 sm:px-6 py-3.5 whitespace-nowrap">दिनांक (Date)</th>
+                    <th class="px-4 sm:px-6 py-3.5 whitespace-nowrap">विभाग (Department)</th>
+                    <th class="px-4 sm:px-6 py-3.5 whitespace-nowrap">गाँव / ब्लॉक (Block/Village)</th>
+                    <th class="px-4 sm:px-6 py-3.5 whitespace-nowrap">शासकीय संस्था (Facility)</th>
+                    <th class="px-4 sm:px-6 py-3.5 whitespace-nowrap">अधिकारी (Officer)</th>
+                    <th class="px-4 sm:px-6 py-3.5 whitespace-nowrap">स्थिति (Status)</th>
+                    <th class="px-4 sm:px-6 py-3.5 text-right whitespace-nowrap">विवरण (Actions)</th>
                   </tr>
                 </thead>
                 <tbody id="reports-table-body" class="divide-y divide-slate-100 text-slate-700 text-xs">
@@ -806,42 +822,42 @@
         </section>
 
         <!-- ==================== MASTER DATA VIEW ==================== -->
-        <section id="view-master" class="space-y-6 hidden">
+        <section id="view-master" class="space-y-4 sm:space-y-6 hidden">
           <!-- Tabbed selector for Masters -->
-          <div class="flex items-center space-x-2 border-b border-slate-200 pb-px">
-            <button onclick="switchMasterSubTab('school')" id="master-subtab-btn-school" class="px-4 py-2.5 text-xs font-bold border-b-2 border-blue-600 text-blue-600 bg-transparent transition-all">
+          <div class="flex items-center space-x-1 sm:space-x-2 border-b border-slate-200 pb-px overflow-x-auto no-scrollbar whitespace-nowrap flex-nowrap scroll-smooth">
+            <button onclick="switchMasterSubTab('school')" id="master-subtab-btn-school" class="px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-bold border-b-2 border-blue-600 text-blue-600 bg-transparent transition-all shrink-0">
               Schools (906)
             </button>
-            <button onclick="switchMasterSubTab('anganwadi')" id="master-subtab-btn-anganwadi" class="px-4 py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all">
+            <button onclick="switchMasterSubTab('anganwadi')" id="master-subtab-btn-anganwadi" class="px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all shrink-0">
               Anganwadi Centers (1057)
             </button>
-            <button onclick="switchMasterSubTab('health_center')" id="master-subtab-btn-health_center" class="px-4 py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all">
+            <button onclick="switchMasterSubTab('health_center')" id="master-subtab-btn-health_center" class="px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all shrink-0">
               Health Centers (93)
             </button>
-            <button onclick="switchMasterSubTab('vet_center')" id="master-subtab-btn-vet_center" class="px-4 py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all">
+            <button onclick="switchMasterSubTab('vet_center')" id="master-subtab-btn-vet_center" class="px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all shrink-0">
               Veterinary Clinics (24)
             </button>
-            <button onclick="switchMasterSubTab('officer')" id="master-subtab-btn-officer" class="px-4 py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all">
+            <button onclick="switchMasterSubTab('officer')" id="master-subtab-btn-officer" class="px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all shrink-0">
               Officers (15)
             </button>
           </div>
 
           <!-- Master table card -->
           <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-            <div class="p-4 border-b border-slate-100 flex items-center justify-between">
-              <div class="relative w-72">
+            <div class="p-3.5 sm:p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div class="relative w-full sm:w-72">
                 <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
                   <i class="fa-solid fa-magnifying-glass text-xs"></i>
                 </span>
-                <input type="text" id="master-search" placeholder="मास्टर रिकॉर्ड खोजें..." oninput="filterMasterTable()" class="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-50 text-slate-800 rounded-lg border border-slate-200 focus:bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                <input type="text" id="master-search" placeholder="मास्टर रिकॉर्ड खोजें..." oninput="filterMasterTable()" class="w-full pl-9 pr-4 py-2 sm:py-1.5 text-xs bg-slate-50 text-slate-800 rounded-lg border border-slate-200 focus:bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-medium">
               </div>
               <div class="text-[10px] text-slate-450 font-bold" id="master-count-badge">
                 दिखाए जा रहे हैं: 0 रिकॉर्ड्स
               </div>
             </div>
 
-            <div class="overflow-x-auto max-h-[35rem] overflow-y-auto">
-              <table class="w-full text-left border-collapse">
+            <div class="overflow-x-auto max-h-[30rem] sm:max-h-[35rem] overflow-y-auto table-responsive custom-scroll">
+              <table class="w-full text-left border-collapse min-w-[600px]">
                 <thead id="master-table-head" class="bg-slate-50 border-b border-slate-200 text-slate-500 font-extrabold text-[10px] uppercase tracking-wider sticky top-0 z-10">
                   <!-- Header dynamically generated -->
                 </thead>
@@ -858,58 +874,82 @@
 
   </div>
 
+  <!-- ==================== MOBILE BOTTOM NAVIGATION BAR ==================== -->
+  <nav id="mobile-bottom-nav" class="lg:hidden fixed bottom-0 inset-x-0 bg-slate-950/95 backdrop-blur-md border-t border-slate-800 z-30 flex items-center justify-around px-1 py-1 pb-safe no-print shadow-2xl">
+    <button id="mobile-nav-btn-dashboard" onclick="switchTab('dashboard')" class="mobile-nav-item active" aria-label="डैशबोर्ड">
+      <i class="fa-solid fa-chart-line"></i>
+      <span>डैशबोर्ड</span>
+    </button>
+    <button id="mobile-nav-btn-new-inspection" onclick="switchTab('new-inspection')" class="mobile-nav-item" aria-label="नया निरीक्षण">
+      <i class="fa-solid fa-file-circle-plus"></i>
+      <span>नया फॉर्म</span>
+    </button>
+    <button id="mobile-nav-btn-physical" onclick="switchTab('physical')" class="mobile-nav-item" aria-label="समय-रेखा">
+      <i class="fa-solid fa-clipboard-check"></i>
+      <span>समय-रेखा</span>
+    </button>
+    <button id="mobile-nav-btn-map" onclick="switchTab('map')" class="mobile-nav-item" aria-label="जीआईएस नक़्शा">
+      <i class="fa-solid fa-map-location-dot"></i>
+      <span>नक़्शा</span>
+    </button>
+    <button id="mobile-nav-btn-master" onclick="switchTab('master')" class="mobile-nav-item" aria-label="मास्टर डेटाबेस">
+      <i class="fa-solid fa-server"></i>
+      <span>मास्टर</span>
+    </button>
+  </nav>
+
   <!-- ==================== MODALS ==================== -->
 
   <!-- Detail Modal: Inspection details card -->
-  <div id="detail-modal" class="fixed inset-0 z-50 overflow-y-auto hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm no-print">
-    <div class="bg-white rounded-2xl max-w-2xl w-full border border-slate-100 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+  <div id="detail-modal" class="fixed inset-0 z-50 overflow-y-auto hidden flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/60 backdrop-blur-sm no-print">
+    <div class="bg-white rounded-2xl max-w-2xl w-full border border-slate-100 shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh]">
       <!-- Header -->
-      <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
-        <div>
-          <h3 id="modal-title" class="text-sm font-extrabold text-slate-800 tracking-wide uppercase">निरीक्षण प्रपत्र विवरण (Inspection Report Sheet)</h3>
-          <p id="modal-subtitle" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Submitted Record Card</p>
+      <div class="p-3.5 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
+        <div class="min-w-0 pr-2">
+          <h3 id="modal-title" class="text-xs sm:text-sm font-extrabold text-slate-800 tracking-wide uppercase truncate">निरीक्षण प्रपत्र विवरण (Inspection Report)</h3>
+          <p id="modal-subtitle" class="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5 truncate">Submitted Record Card</p>
         </div>
-        <button onclick="closeDetailModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
-          <i class="fa-solid fa-xmark text-base"></i>
+        <button onclick="closeDetailModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100 transition-colors shrink-0" aria-label="Close modal">
+          <i class="fa-solid fa-xmark text-base sm:text-lg"></i>
         </button>
       </div>
 
       <!-- Content -->
-      <div class="flex-1 overflow-y-auto p-6 space-y-6" id="modal-content-area">
+      <div class="flex-1 overflow-y-auto p-3.5 sm:p-6 space-y-4 sm:space-y-5" id="modal-content-area">
         <!-- Render detail layout dynamically -->
       </div>
 
       <!-- Footer -->
-      <div class="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end space-x-3 shrink-0">
-        <button onclick="closeDetailModal()" class="px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl shadow-sm transition-colors">
+      <div class="p-3 sm:p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end space-x-2 sm:space-x-3 shrink-0">
+        <button onclick="closeDetailModal()" class="px-3.5 sm:px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl shadow-sm transition-colors">
           बंद करें (Close)
         </button>
-        <button onclick="printCurrentModalReport()" class="px-4 py-2 text-xs font-bold text-white bg-slate-850 hover:bg-slate-750 rounded-xl shadow-md flex items-center space-x-1.5 transition-colors">
+        <button onclick="printCurrentModalReport()" class="px-3.5 sm:px-4 py-2 text-xs font-bold text-white bg-slate-850 hover:bg-slate-750 rounded-xl shadow-md flex items-center space-x-1.5 transition-colors">
           <i class="fa-solid fa-print"></i>
-          <span>प्रिंट / पीडीएफ़ (Print PDF)</span>
+          <span>प्रिंट / पीडीएफ़</span>
         </button>
       </div>
     </div>
   </div>
 
   <!-- Physical Progress Visits Timeline Modal -->
-  <div id="project-timeline-modal" class="fixed inset-0 z-50 overflow-y-auto hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm no-print">
-    <div class="bg-white rounded-2xl max-w-5xl w-full border border-slate-100 shadow-2xl overflow-hidden flex flex-col h-[85vh]">
+  <div id="project-timeline-modal" class="fixed inset-0 z-50 overflow-y-auto hidden flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/60 backdrop-blur-sm no-print">
+    <div class="bg-white rounded-2xl max-w-5xl w-full border border-slate-100 shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] h-[92vh] sm:h-[90vh]">
       <!-- Header -->
-      <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
-        <div>
-          <h3 id="timeline-modal-title" class="text-sm font-extrabold text-slate-800 tracking-wide uppercase">प्रगति समय-रेखा (Construction Timeline)</h3>
-          <p id="timeline-modal-subtitle" class="text-[10px] text-slate-500 font-bold uppercase mt-0.5">Project Details</p>
+      <div class="p-3.5 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
+        <div class="min-w-0 pr-2">
+          <h3 id="timeline-modal-title" class="text-xs sm:text-sm font-extrabold text-slate-800 tracking-wide uppercase truncate">प्रगति समय-रेखा (Construction Timeline)</h3>
+          <p id="timeline-modal-subtitle" class="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase mt-0.5 truncate">Project Details</p>
         </div>
-        <button onclick="closeTimelineModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
-          <i class="fa-solid fa-xmark text-base"></i>
+        <button onclick="closeTimelineModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100 transition-colors shrink-0" aria-label="Close modal">
+          <i class="fa-solid fa-xmark text-base sm:text-lg"></i>
         </button>
       </div>
 
       <!-- Content columns -->
-      <div class="flex-1 overflow-hidden flex flex-col md:flex-row">
+      <div class="flex-1 overflow-y-auto lg:overflow-hidden flex flex-col lg:flex-row">
         <!-- Left half: Timeline progression -->
-        <div class="flex-1 overflow-y-auto p-6 border-r border-slate-100 space-y-6">
+        <div class="flex-1 overflow-y-auto p-3.5 sm:p-6 border-b lg:border-b-0 lg:border-r border-slate-100 space-y-5 sm:space-y-6">
           <h4 class="text-xs font-extrabold text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-2">निरीक्षण इतिहास समय-रेखा (Visit History Timeline)</h4>
           <div class="relative pl-3" id="timeline-progression-container">
             <!-- Vertical timeline line and points loaded dynamically -->
@@ -917,9 +957,9 @@
         </div>
 
         <!-- Right half: Log a new visit -->
-        <div class="w-full md:w-96 bg-slate-50/50 p-6 overflow-y-auto flex flex-col shrink-0">
-          <h4 class="text-xs font-extrabold text-slate-800 uppercase tracking-wide border-b border-slate-150 pb-2 mb-4">नया प्रगति निरीक्षण दर्ज करें (Log New Inspection)</h4>
-          <form id="project-visit-form" onsubmit="handleProjectVisitSubmit(event)" class="space-y-4 flex-1">
+        <div class="w-full lg:w-96 bg-slate-50/50 p-3.5 sm:p-6 overflow-y-auto flex flex-col shrink-0">
+          <h4 class="text-xs font-extrabold text-slate-800 uppercase tracking-wide border-b border-slate-150 pb-2 mb-3.5">नया प्रगति निरीक्षण दर्ज करें (Log New Inspection)</h4>
+          <form id="project-visit-form" onsubmit="handleProjectVisitSubmit(event)" class="space-y-3.5 sm:space-y-4 flex-1">
             <input type="hidden" id="timeline-project-id">
             
             <div>
@@ -945,7 +985,7 @@
 
             <div>
               <label for="visit-input-remarks" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">निरीक्षण टिप्पणी (Visit Remarks) <span class="text-red-500">*</span></label>
-              <textarea id="visit-input-remarks" required rows="4" placeholder="गुणवत्ता जांच विवरण, सामग्री गुणवत्ता, मजदूरों की संख्या, देरी का कारण (यदि कोई हो) यहाँ दर्ज करें..." class="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700"></textarea>
+              <textarea id="visit-input-remarks" required rows="3" placeholder="गुणवत्ता जांच विवरण, सामग्री गुणवत्ता, मजदूरों की संख्या, देरी का कारण (यदि कोई हो) यहाँ दर्ज करें..." class="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700"></textarea>
             </div>
 
             <div>
@@ -954,7 +994,7 @@
                 <div class="w-12 h-12 rounded bg-slate-100 border border-slate-250 flex items-center justify-center text-slate-400 overflow-hidden shrink-0" id="visit-photo-preview-box">
                   <i class="fa-solid fa-image text-lg"></i>
                 </div>
-                <div class="flex-1">
+                <div class="flex-1 min-w-0">
                   <input type="file" id="visit-file-photo" accept="image/*" onchange="previewImage(this, 'visit-photo-preview-box')" class="hidden">
                   <button type="button" onclick="document.getElementById('visit-file-photo').click()" class="bg-slate-50 hover:bg-slate-100 text-slate-700 px-2.5 py-1 border border-slate-200 rounded text-[10px] font-bold shadow-sm transition-colors">
                     फ़ाइल चुनें
@@ -963,7 +1003,7 @@
               </div>
             </div>
 
-            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-750 text-white py-2 rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 shadow-md shadow-blue-500/10 transition-colors mt-6">
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-750 text-white py-2.5 rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 shadow-md shadow-blue-500/10 transition-colors mt-4 sm:mt-6">
               <i class="fa-solid fa-floppy-disk"></i>
               <span>निरीक्षण दर्ज करें (Submit Visit)</span>
             </button>
@@ -974,30 +1014,30 @@
   </div>
 
   <!-- Add New Project Modal -->
-  <div id="add-project-modal" class="fixed inset-0 z-50 overflow-y-auto hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm no-print">
-    <div class="bg-white rounded-2xl max-w-lg w-full border border-slate-100 shadow-2xl overflow-hidden flex flex-col">
+  <div id="add-project-modal" class="fixed inset-0 z-50 overflow-y-auto hidden flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/60 backdrop-blur-sm no-print">
+    <div class="bg-white rounded-2xl max-w-lg w-full border border-slate-100 shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh]">
       <!-- Header -->
-      <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-        <h3 class="text-sm font-extrabold text-slate-800 tracking-wide uppercase">नया भौतिक निर्माण कार्य प्रोजेक्ट जोड़ें</h3>
-        <button onclick="closeNewProjectModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
-          <i class="fa-solid fa-xmark text-base"></i>
+      <div class="p-3.5 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
+        <h3 class="text-xs sm:text-sm font-extrabold text-slate-800 tracking-wide uppercase truncate">नया भौतिक निर्माण कार्य प्रोजेक्ट जोड़ें</h3>
+        <button onclick="closeNewProjectModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100 transition-colors shrink-0" aria-label="Close modal">
+          <i class="fa-solid fa-xmark text-base sm:text-lg"></i>
         </button>
       </div>
 
       <!-- Form -->
-      <form id="new-project-form" onsubmit="handleNewProjectSubmit(event)" class="p-6 space-y-4">
+      <form id="new-project-form" onsubmit="handleNewProjectSubmit(event)" class="p-4 sm:p-6 space-y-3.5 sm:space-y-4 overflow-y-auto flex-1">
         <div>
-          <label for="new-proj-name" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">प्रोजेक्ट / कार्य का नाम (Project Name) <span class="text-red-500">*</span></label>
+          <label for="new-proj-name" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">प्रोजेक्ट / कार्य का नाम (Project Name) <span class="text-red-500">*</span></label>
           <input type="text" id="new-proj-name" required placeholder="जैसे: आंगनवाड़ी भवन निर्माण, अतिरिक्त शाला कक्ष..." class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div>
-            <label for="new-proj-type" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">निर्माण का प्रकार (Asset Type) <span class="text-red-500">*</span></label>
+            <label for="new-proj-type" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">निर्माण का प्रकार (Asset Type) <span class="text-red-500">*</span></label>
             <input type="text" id="new-proj-type" required placeholder="जैसे: School Building, Shed..." class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
           </div>
           <div>
-            <label for="new-proj-dept" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">कार्यान्वयन विभाग (Dept) <span class="text-red-500">*</span></label>
+            <label for="new-proj-dept" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">कार्यान्वयन विभाग (Dept) <span class="text-red-500">*</span></label>
             <select id="new-proj-dept" required class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
               <option value="">-- विभाग --</option>
               <option value="School & Hostel">School & Hostel</option>
@@ -1009,9 +1049,9 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div>
-            <label for="new-proj-block" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">विकासखंड (Block) <span class="text-red-500">*</span></label>
+            <label for="new-proj-block" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">विकासखंड (Block) <span class="text-red-500">*</span></label>
             <select id="new-proj-block" required class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
               <option value="">-- विकासखंड --</option>
               <option value="DANTEWADA (221622)">Dantewada</option>
@@ -1021,23 +1061,23 @@
             </select>
           </div>
           <div>
-            <label for="new-proj-village" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">गाँव (Village) <span class="text-red-500">*</span></label>
+            <label for="new-proj-village" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">गाँव (Village) <span class="text-red-500">*</span></label>
             <input type="text" id="new-proj-village" required placeholder="गाँव का नाम..." class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
           </div>
         </div>
 
-        <div class="grid grid-cols-3 gap-3">
-          <div class="relative col-span-2">
-            <label for="new-proj-date" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">लक्षित पूर्णता तिथि (Target Date)</label>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="relative sm:col-span-2">
+            <label for="new-proj-date" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">लक्षित पूर्णता तिथि (Target Date)</label>
             <input type="date" id="new-proj-date" required class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
           </div>
           <div>
-            <label for="new-proj-progress" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">आरंभिक प्रगति %</label>
+            <label for="new-proj-progress" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">आरंभिक प्रगति %</label>
             <input type="number" id="new-proj-progress" min="0" max="100" value="0" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
           </div>
         </div>
 
-        <div class="flex items-center justify-end space-x-2 pt-4 border-t border-slate-100">
+        <div class="flex items-center justify-end space-x-2 pt-3 sm:pt-4 border-t border-slate-100">
           <button type="button" onclick="closeNewProjectModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl shadow-sm transition-colors">
             रद्द करें
           </button>
@@ -1050,13 +1090,13 @@
   </div>
 
   <!-- Photo Lightbox Modal -->
-  <div id="photo-lightbox-modal" class="fixed inset-0 z-50 overflow-y-auto hidden flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md no-print" onclick="closePhotoLightBox()">
-    <div class="relative max-w-4xl max-h-[90vh] flex flex-col items-center justify-center" onclick="event.stopPropagation()">
-      <button type="button" onclick="closePhotoLightBox()" class="absolute -top-10 right-0 text-white/80 hover:text-white text-xl font-bold p-1 transition-colors">
+  <div id="photo-lightbox-modal" class="fixed inset-0 z-50 overflow-y-auto hidden flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md no-print" onclick="closePhotoLightBox()">
+    <div class="relative max-w-4xl max-h-[90vh] w-full flex flex-col items-center justify-center p-2" onclick="event.stopPropagation()">
+      <button type="button" onclick="closePhotoLightBox()" class="absolute top-2 right-2 text-white/80 hover:text-white text-2xl font-bold p-2 transition-colors z-10" aria-label="Close photo">
         <i class="fa-solid fa-xmark"></i>
       </button>
-      <img id="lightbox-image" src="" alt="Visit Photo" class="max-w-full max-h-[80vh] rounded-xl shadow-2xl object-contain border border-white/10 bg-black">
-      <p id="lightbox-caption" class="text-white/90 text-xs font-bold mt-2 text-center"></p>
+      <img id="lightbox-image" src="" alt="Visit Photo" class="max-w-full max-h-[75vh] sm:max-h-[80vh] rounded-xl shadow-2xl object-contain border border-white/10 bg-black">
+      <p id="lightbox-caption" class="text-white/90 text-xs sm:text-sm font-bold mt-3 text-center px-4"></p>
     </div>
   </div>
 

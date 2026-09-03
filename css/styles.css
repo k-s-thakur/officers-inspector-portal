@@ -1,5 +1,27 @@
 /* Custom Styles for Collector Portal */
 
+/* Safe Area Inset Support for Modern Mobile Devices (iOS notch/home bar) */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+}
+
+.pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0.75rem));
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Base Mobile & Touch Enhancements */
+html, body {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
 /* Custom scrollbars */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
@@ -7,6 +29,28 @@
 .no-scrollbar {
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
+}
+
+.custom-scroll::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.custom-scroll::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 9999px;
+}
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Mobile Sidebar Drawer Transition */
+#sidebar {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
 }
 
 /* Pulse animation for saving */
@@ -117,9 +161,99 @@
 .hover-card {
   transition: all 0.2s ease-in-out;
 }
-.hover-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+@media (hover: hover) {
+  .hover-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+  }
+}
+
+/* Responsive Table Helper Classes */
+.table-responsive {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Desktop-only Sticky Columns for Matrix Table (Ensures mobile screens scroll smoothly without being blocked) */
+@media (min-width: 1024px) {
+  .timeline-sticky-1 {
+    position: sticky !important;
+    left: 0 !important;
+    z-index: 20 !important;
+  }
+  .timeline-sticky-2 {
+    position: sticky !important;
+    left: 48px !important;
+    z-index: 20 !important;
+  }
+  .timeline-sticky-3 {
+    position: sticky !important;
+    left: 178px !important;
+    z-index: 20 !important;
+    box-shadow: 4px 0 6px -2px rgba(0, 0, 0, 0.06);
+  }
+  .timeline-cell-sticky-1 {
+    position: sticky !important;
+    left: 0 !important;
+    z-index: 10 !important;
+  }
+  .timeline-cell-sticky-2 {
+    position: sticky !important;
+    left: 48px !important;
+    z-index: 10 !important;
+  }
+  .timeline-cell-sticky-3 {
+    position: sticky !important;
+    left: 178px !important;
+    z-index: 10 !important;
+    box-shadow: 4px 0 6px -2px rgba(0, 0, 0, 0.06);
+  }
+}
+
+/* Mobile Bottom Navigation Styles */
+.mobile-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 6px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  transition: all 0.2s ease;
+  position: relative;
+  min-height: 48px;
+}
+.mobile-nav-item i {
+  font-size: 16px;
+  margin-bottom: 2px;
+}
+.mobile-nav-item.active {
+  color: #3b82f6;
+}
+.mobile-nav-item.active i {
+  transform: scale(1.1);
+}
+.mobile-nav-item.active::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  width: 16px;
+  height: 3px;
+  background-color: #3b82f6;
+  border-radius: 9999px;
+}
+
+/* Form input and touch target optimization */
+@media (max-width: 768px) {
+  input, select, textarea, button {
+    touch-action: manipulation;
+  }
+  /* Prevent iOS automatic zoom on focus while maintaining crisp readability */
+  input[type="text"], input[type="tel"], input[type="number"], input[type="date"], select, textarea {
+    font-size: 14px;
+  }
 }
 
 /* Print Overrides */
@@ -129,7 +263,7 @@
     color: black !important;
   }
   
-  .no-print, header, aside, .btn-action-container, .leaflet-control-container, #detail-modal .shrink-0 {
+  .no-print, header, aside, #sidebar-backdrop, .btn-action-container, .leaflet-control-container, #detail-modal .shrink-0, #mobile-bottom-nav {
     display: none !important;
   }
   

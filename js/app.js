@@ -466,8 +466,32 @@ async function syncNewProjectToAPI(project) {
 }
 
 // 2. Navigation System (SPA Tabs)
+function toggleMobileSidebar(forceState) {
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  if (!sidebar) return;
+  
+  const isClosed = sidebar.classList.contains('-translate-x-full');
+  const shouldOpen = forceState !== undefined ? forceState : isClosed;
+  
+  if (shouldOpen) {
+    sidebar.classList.remove('-translate-x-full');
+    sidebar.classList.add('translate-x-0');
+    if (backdrop) backdrop.classList.remove('hidden');
+  } else {
+    sidebar.classList.add('-translate-x-full');
+    sidebar.classList.remove('translate-x-0');
+    if (backdrop) backdrop.classList.add('hidden');
+  }
+}
+
 function switchTab(tabId) {
   state.activeTab = tabId;
+  
+  // Auto-close mobile sidebar drawer on tab switch
+  if (window.innerWidth < 1024) {
+    toggleMobileSidebar(false);
+  }
   
   // Hide all sections
   const sections = ['dashboard', 'map', 'new-inspection', 'physical', 'reports', 'master'];
@@ -478,13 +502,23 @@ function switchTab(tabId) {
       el.classList.remove('block', 'flex');
     }
     
-    // Update sidebar buttons styling
+    // Update sidebar desktop buttons styling
     const btn = document.getElementById(`nav-btn-${s}`);
     if (btn) {
       if (s === tabId) {
         btn.className = "w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-xs font-semibold bg-blue-600 text-white shadow-lg shadow-blue-600/10 transition-colors";
       } else {
         btn.className = "w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-xs font-semibold hover:bg-slate-800 hover:text-white text-slate-400 transition-colors";
+      }
+    }
+
+    // Update mobile bottom bar active state
+    const mobBtn = document.getElementById(`mobile-nav-btn-${s}`);
+    if (mobBtn) {
+      if (s === tabId) {
+        mobBtn.classList.add('active');
+      } else {
+        mobBtn.classList.remove('active');
       }
     }
   });
@@ -503,12 +537,12 @@ function switchTab(tabId) {
   
   // Update header title
   const titles = {
-    'dashboard': 'शासकीय निरीक्षण एवं अनुश्रवण प्रणाली - अधिकारी डैशबोर्ड',
-    'map': 'जीआईएस भौगोलिक निरीक्षण मानचित्र (GIS Map View)',
-    'new-inspection': 'आकस्मिक निरीक्षण फॉर्म (New Inspection Entry)',
-    'physical': 'निरीक्षण विज़िट समय-रेखा मैट्रिक्स (Inspection Visits & Timeline Matrix)',
-    'reports': 'निरीक्षण इतिहास लॉग एवं प्रतिवेदन (Inspection Reports & Export)',
-    'master': 'जिला मास्टर डेटाबेस एक्सप्लोरर (Master Data Explorer)'
+    'dashboard': 'अधिकारी डैशबोर्ड (Dashboard)',
+    'map': 'जीआईएस भौगोलिक निरीक्षण मानचित्र (GIS Map)',
+    'new-inspection': 'आकस्मिक निरीक्षण फॉर्म (New Inspection)',
+    'physical': 'निरीक्षण विज़िट समय-रेखा मैट्रिक्स (Timeline)',
+    'reports': 'निरीक्षण इतिहास लॉग एवं प्रतिवेदन (Reports)',
+    'master': 'जिला मास्टर डेटाबेस एक्सप्लोरर (Master Data)'
   };
   document.getElementById('current-view-title').innerText = titles[tabId] || 'शासकीय निरीक्षण';
   
@@ -517,8 +551,14 @@ function switchTab(tabId) {
     updateDashboardMetrics();
     initDashboardCharts();
     initDashboardMap();
+    if (dashboardMap) {
+      setTimeout(() => dashboardMap.invalidateSize(), 150);
+    }
   } else if (tabId === 'map') {
     initGISMap();
+    if (mainMap) {
+      setTimeout(() => mainMap.invalidateSize(), 150);
+    }
   } else if (tabId === 'new-inspection') {
     loadCachedOfficerInfo();
     const dateInput = document.getElementById('form-input-date');
@@ -536,30 +576,68 @@ function switchTab(tabId) {
   }
   
   // Update print date/time stamp
-  document.getElementById('print-timestamp').innerText = `प्रिंट रिपोर्ट तिथि: ${formatDateString(new Date())} | समय: ${new Date().toLocaleTimeString('hi-IN')}`;
+  const printEl = document.getElementById('print-timestamp');
+  if (printEl) {
+    printEl.innerText = `प्रिंट रिपोर्ट तिथि: ${formatDateString(new Date())} | समय: ${new Date().toLocaleTimeString('hi-IN')}`;
+  }
 }
 
 function setupNavigation() {
-  // Mobile sidebar toggle
+  // Mobile sidebar toggle button
   const toggleBtn = document.getElementById('btn-toggle-sidebar');
-  const sidebar = document.getElementById('sidebar');
-  if (toggleBtn && sidebar) {
-    toggleBtn.addEventListener('click', () => {
-      sidebar.classList.toggle('-translate-x-full');
-      sidebar.classList.toggle('translate-x-0');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleMobileSidebar();
     });
   }
   
-  // Close sidebar on outer click for mobile view
-  document.addEventListener('click', (e) => {
-    if (window.innerWidth < 1024) {
-      const sidebar = document.getElementById('sidebar');
-      const toggleBtn = document.getElementById('btn-toggle-sidebar');
-      if (sidebar && toggleBtn && !sidebar.contains(e.target) && !toggleBtn.contains(e.target)) {
-        sidebar.classList.add('-translate-x-full');
-      }
+  // Close sidebar on outer click / escape on mobile
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      toggleMobileSidebar(false);
+      closeDetailModal();
+      closeTimelineModal();
+      closeNewProjectModal();
+      closePhotoLightBox();
     }
   });
+
+  // Window resize debounced listener to adjust maps and sidebar
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (window.innerWidth >= 1024) {
+        toggleMobileSidebar(false);
+      }
+      if (mainMap) mainMap.invalidateSize();
+      if (dashboardMap) dashboardMap.invalidateSize();
+    }, 200);
+  });
+}
+
+function toggleMapFiltersMobile() {
+  const body = document.getElementById('map-filters-body');
+  const icon = document.getElementById('map-filter-toggle-icon');
+  const text = document.getElementById('map-filter-toggle-text');
+  if (!body) return;
+  
+  const isHidden = body.classList.contains('hidden');
+  if (isHidden) {
+    body.classList.remove('hidden');
+    body.classList.add('block');
+    if (icon) { icon.classList.remove('fa-chevron-down'); icon.classList.add('fa-chevron-up'); }
+    if (text) text.innerText = 'छिपाएं';
+  } else {
+    body.classList.add('hidden');
+    body.classList.remove('block');
+    if (icon) { icon.classList.remove('fa-chevron-up'); icon.classList.add('fa-chevron-down'); }
+    if (text) text.innerText = 'फ़िल्टर्स';
+  }
+  if (mainMap) {
+    setTimeout(() => mainMap.invalidateSize(), 200);
+  }
 }
 
 function populateHeaderOfficerSelect() {
@@ -1894,9 +1972,9 @@ function renderInspectionTimelineTable() {
   // Build thead
   let theadHtml = `
     <tr>
-      <th class="px-3.5 py-3 sticky left-0 bg-slate-100/95 z-20 w-12 text-center border-r border-slate-200">क्र.</th>
-      <th class="px-4 py-3 sticky left-12 bg-slate-100/95 z-20 min-w-[130px] border-r border-slate-200">विभाग</th>
-      <th class="px-4 py-3 sticky left-[172px] bg-slate-100/95 z-20 min-w-[200px] border-r border-slate-200 shadow-md">निरीक्षण स्थल (Location)</th>
+      <th class="px-3.5 py-3 timeline-sticky-1 bg-slate-100/95 w-12 text-center border-r border-slate-200">क्र.</th>
+      <th class="px-4 py-3 timeline-sticky-2 bg-slate-100/95 min-w-[130px] border-r border-slate-200">विभाग</th>
+      <th class="px-4 py-3 timeline-sticky-3 bg-slate-100/95 min-w-[200px] border-r border-slate-200">निरीक्षण स्थल (Location)</th>
       <th class="px-3 py-3 text-center min-w-[100px] border-r border-slate-200">कुल विज़िट</th>
       <th class="px-4 py-3 text-center min-w-[160px] bg-blue-50/70 border-r border-slate-200">कार्यवाही (Action)</th>
   `;
@@ -1918,11 +1996,11 @@ function renderInspectionTimelineTable() {
     const gpDisplay = g.panchayat ? `<span class="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold mr-1">${escapeHtml(g.panchayat)}</span>` : '';
 
     let rowHtml = `
-      <td class="px-3.5 py-3 text-center font-bold text-slate-400 sticky left-0 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-200">${idx + 1}</td>
-      <td class="px-4 py-3 sticky left-12 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-200">
+      <td class="px-3.5 py-3 text-center font-bold text-slate-400 timeline-cell-sticky-1 bg-white group-hover:bg-slate-50 border-r border-slate-200">${idx + 1}</td>
+      <td class="px-4 py-3 timeline-cell-sticky-2 bg-white group-hover:bg-slate-50 border-r border-slate-200">
         <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase shrink-0 ${deptBadge.bg} ${deptBadge.color}">${deptBadge.label}</span>
       </td>
-      <td class="px-4 py-3 sticky left-[172px] bg-white group-hover:bg-slate-50 z-10 border-r border-slate-200 shadow-md">
+      <td class="px-4 py-3 timeline-cell-sticky-3 bg-white group-hover:bg-slate-50 border-r border-slate-200">
         <div class="font-extrabold text-slate-800 text-xs">${gpDisplay}${escapeHtml(g.village || 'दंतेवाड़ा')}</div>
         <div class="text-[10px] text-slate-400 font-semibold mt-0.5">${escapeHtml(cleanBlock)}</div>
       </td>
@@ -2241,20 +2319,20 @@ function renderReportsTable() {
     const gpInfo = i.panchayat ? `<span class="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold mr-1">${i.panchayat}</span>` : '';
     
     tr.innerHTML = `
-      <td class="px-6 py-4 font-bold text-slate-500 whitespace-nowrap">${formatDateString(i.date)}</td>
-      <td class="px-6 py-4">
+      <td class="px-3.5 sm:px-6 py-3 sm:py-4 font-bold text-slate-500 whitespace-nowrap">${formatDateString(i.date)}</td>
+      <td class="px-3.5 sm:px-6 py-3 sm:py-4">
         <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase shrink-0 ${badge.bg} ${badge.color}">${badge.label}</span>
       </td>
-      <td class="px-6 py-4">
+      <td class="px-3.5 sm:px-6 py-3 sm:py-4">
         <div class="font-bold text-slate-800">${gpInfo}${i.village}</div>
         <div class="text-[10px] text-slate-400 font-semibold mt-0.5">${cleanBlock}</div>
       </td>
-      <td class="px-6 py-4 font-extrabold text-slate-800">${i.facilityName || i.village || '-'}</td>
-      <td class="px-6 py-4 font-semibold text-slate-500">${i.officerName.replace('Sh ', '')}</td>
-      <td class="px-6 py-4 text-center">
+      <td class="px-3.5 sm:px-6 py-3 sm:py-4 font-extrabold text-slate-800">${i.facilityName || i.village || '-'}</td>
+      <td class="px-3.5 sm:px-6 py-3 sm:py-4 font-semibold text-slate-500">${i.officerName.replace('Sh ', '')}</td>
+      <td class="px-3.5 sm:px-6 py-3 sm:py-4 text-center">
         <span class="px-2 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded text-[9px] font-bold">SUBMITTED</span>
       </td>
-      <td class="px-6 py-4 text-right" onclick="event.stopPropagation()">
+      <td class="px-3.5 sm:px-6 py-3 sm:py-4 text-right" onclick="event.stopPropagation()">
         <button onclick="showInspectionDetail('${i.id}')" class="text-blue-600 hover:text-blue-800 text-xs font-bold uppercase tracking-wider">देखें &rarr;</button>
       </td>
     `;
@@ -2384,23 +2462,23 @@ function renderMasterTable() {
   if (state.activeMasterTab === 'school') {
     list = state.schools;
     cols = ['ID', 'School Name', 'Block', 'Panchayat', 'Village', 'Coordinates'];
-    head.innerHTML = `<tr><th class="px-6 py-3">ID</th><th class="px-6 py-3">संस्था का नाम (School Name)</th><th class="px-6 py-3">विकासखंड (Block)</th><th class="px-6 py-3">ग्राम पंचायत (Panchayat)</th><th class="px-6 py-3">गाँव (Village)</th><th class="px-6 py-3">नक़्शा (Location)</th></tr>`;
+    head.innerHTML = `<tr><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">ID</th><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">संस्था का नाम (School Name)</th><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">विकासखंड (Block)</th><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">ग्राम पंचायत (Panchayat)</th><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">गाँव (Village)</th><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">नक़्शा (Location)</th></tr>`;
   } else if (state.activeMasterTab === 'anganwadi') {
     list = state.anganwadis;
     cols = ['ID', 'Anganwadi Name', 'Block', 'Sector', 'Village', 'Code'];
-    head.innerHTML = `<tr><th class="px-6 py-3">ID</th><th class="px-6 py-3">आंगनवाड़ी केंद्र (AWC Name)</th><th class="px-6 py-3">विकासखंड (Block)</th><th class="px-6 py-3">सेक्टर (Sector)</th><th class="px-6 py-3">गाँव (Village)</th><th class="px-6 py-3">कोड (AWC Code)</th></tr>`;
+    head.innerHTML = `<tr><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">ID</th><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">आंगनवाड़ी केंद्र (AWC Name)</th><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">विकासखंड (Block)</th><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">सेक्टर (Sector)</th><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">गाँव (Village)</th><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">कोड (AWC Code)</th></tr>`;
   } else if (state.activeMasterTab === 'health_center') {
     list = state.health_centers;
     cols = ['ID', 'Health Center', 'Block', 'Village', 'Location'];
-    head.innerHTML = `<tr><th class="px-6 py-3">ID</th><th class="px-6 py-3">स्वास्थ्य केंद्र का नाम</th><th class="px-6 py-3">विकासखंड (Block)</th><th class="px-6 py-3">गाँव (Village)</th><th class="px-6 py-3">भौगोलिक स्थिति</th></tr>`;
+    head.innerHTML = `<tr><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">ID</th><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">स्वास्थ्य केंद्र का नाम</th><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">विकासखंड (Block)</th><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">गाँव (Village)</th><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">भौगोलिक स्थिति</th></tr>`;
   } else if (state.activeMasterTab === 'vet_center') {
     list = state.vet_centers;
     cols = ['ID', 'Vet Center', 'Block', 'Village', 'Location'];
-    head.innerHTML = `<tr><th class="px-6 py-3">ID</th><th class="px-6 py-3">पशु चिकित्सा केंद्र</th><th class="px-6 py-3">विकासखंड (Block)</th><th class="px-6 py-3">गाँव (Village)</th><th class="px-6 py-3">नक़्शा स्थिति</th></tr>`;
+    head.innerHTML = `<tr><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">ID</th><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">पशु चिकित्सा केंद्र</th><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">विकासखंड (Block)</th><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">गाँव (Village)</th><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">नक़्शा स्थिति</th></tr>`;
   } else if (state.activeMasterTab === 'officer') {
     list = state.officers;
     cols = ['ID', 'Officer Name', 'Designation'];
-    head.innerHTML = `<tr><th class="px-6 py-3">ID</th><th class="px-6 py-3">अधिकारी का नाम (Officer Name)</th><th class="px-6 py-3">पदनाम (Designation)</th></tr>`;
+    head.innerHTML = `<tr><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">ID</th><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">अधिकारी का नाम (Officer Name)</th><th class="px-3.5 sm:px-6 py-2.5 sm:py-3 whitespace-nowrap">पदनाम (Designation)</th></tr>`;
   }
   
   // Filter list
@@ -2415,7 +2493,7 @@ function renderMasterTable() {
   document.getElementById('master-count-badge').innerText = `दिखाए जा रहे हैं: ${filtered.length} रिकॉर्ड्स`;
   
   if (filtered.length === 0) {
-    body.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-400 font-bold">कोई रिकॉर्ड नहीं मिला।</td></tr>`;
+    body.innerHTML = `<tr><td colspan="6" class="px-4 py-12 text-center text-slate-400 font-bold">कोई रिकॉर्ड नहीं मिला।</td></tr>`;
     return;
   }
   
@@ -2425,17 +2503,17 @@ function renderMasterTable() {
     
     if (state.activeMasterTab === 'school') {
       const coordsStr = item.latitude ? `${item.latitude}, ${item.longitude}` : "N/A";
-      tr.innerHTML = `<td class="px-6 py-3 font-semibold text-slate-500">${item.id}</td><td class="px-6 py-3 font-bold text-slate-800">${item.name}</td><td class="px-6 py-3 font-semibold">${item.block}</td><td class="px-6 py-3 font-semibold">${item.panchayat}</td><td class="px-6 py-3 font-semibold">${item.village}</td><td class="px-6 py-3 text-blue-600 font-semibold">${coordsStr}</td>`;
+      tr.innerHTML = `<td class="px-3.5 sm:px-6 py-2.5 sm:py-3 font-semibold text-slate-500">${item.id}</td><td class="px-3.5 sm:px-6 py-2.5 sm:py-3 font-bold text-slate-800">${item.name}</td><td class="px-3.5 sm:px-6 py-2.5 sm:py-3 font-semibold">${item.block}</td><td class="px-3.5 sm:px-6 py-2.5 sm:py-3 font-semibold">${item.panchayat}</td><td class="px-3.5 sm:px-6 py-2.5 sm:py-3 font-semibold">${item.village}</td><td class="px-3.5 sm:px-6 py-2.5 sm:py-3 text-blue-600 font-semibold">${coordsStr}</td>`;
     } else if (state.activeMasterTab === 'anganwadi') {
-      tr.innerHTML = `<td class="px-6 py-3 font-semibold text-slate-500">${item.id}</td><td class="px-6 py-3 font-bold text-slate-800">${item.name}</td><td class="px-6 py-3 font-semibold">${item.block}</td><td class="px-6 py-3 font-semibold">${item.sector}</td><td class="px-6 py-3 font-semibold">${item.village}</td><td class="px-6 py-3 text-slate-500 font-semibold">${item.code || 'N/A'}</td>`;
+      tr.innerHTML = `<td class="px-3.5 sm:px-6 py-2.5 sm:py-3 font-semibold text-slate-500">${item.id}</td><td class="px-3.5 sm:px-6 py-2.5 sm:py-3 font-bold text-slate-800">${item.name}</td><td class="px-3.5 sm:px-6 py-2.5 sm:py-3 font-semibold">${item.block}</td><td class="px-3.5 sm:px-6 py-2.5 sm:py-3 font-semibold">${item.sector}</td><td class="px-3.5 sm:px-6 py-2.5 sm:py-3 font-semibold">${item.village}</td><td class="px-3.5 sm:px-6 py-2.5 sm:py-3 text-slate-500 font-semibold">${item.code || 'N/A'}</td>`;
     } else if (state.activeMasterTab === 'health_center') {
       const coordsStr = item.latitude ? `${item.latitude}, ${item.longitude}` : "N/A";
-      tr.innerHTML = `<td class="px-6 py-3 font-semibold text-slate-500">${item.id}</td><td class="px-6 py-3 font-bold text-slate-800">${item.name}</td><td class="px-6 py-3 font-semibold">${item.block}</td><td class="px-6 py-3 font-semibold">${item.village}</td><td class="px-6 py-3 text-blue-600 font-semibold">${coordsStr}</td>`;
+      tr.innerHTML = `<td class="px-3.5 sm:px-6 py-2.5 sm:py-3 font-semibold text-slate-500">${item.id}</td><td class="px-3.5 sm:px-6 py-2.5 sm:py-3 font-bold text-slate-800">${item.name}</td><td class="px-3.5 sm:px-6 py-2.5 sm:py-3 font-semibold">${item.block}</td><td class="px-3.5 sm:px-6 py-2.5 sm:py-3 font-semibold">${item.village}</td><td class="px-3.5 sm:px-6 py-2.5 sm:py-3 text-blue-600 font-semibold">${coordsStr}</td>`;
     } else if (state.activeMasterTab === 'vet_center') {
       const coordsStr = item.latitude ? `${item.latitude}, ${item.longitude}` : "N/A";
-      tr.innerHTML = `<td class="px-6 py-3 font-semibold text-slate-500">${item.id}</td><td class="px-6 py-3 font-bold text-slate-800">${item.name}</td><td class="px-6 py-3 font-semibold">${item.block}</td><td class="px-6 py-3 font-semibold">${item.village}</td><td class="px-6 py-3 text-blue-600 font-semibold">${coordsStr}</td>`;
+      tr.innerHTML = `<td class="px-3.5 sm:px-6 py-2.5 sm:py-3 font-semibold text-slate-500">${item.id}</td><td class="px-3.5 sm:px-6 py-2.5 sm:py-3 font-bold text-slate-800">${item.name}</td><td class="px-3.5 sm:px-6 py-2.5 sm:py-3 font-semibold">${item.block}</td><td class="px-3.5 sm:px-6 py-2.5 sm:py-3 font-semibold">${item.village}</td><td class="px-3.5 sm:px-6 py-2.5 sm:py-3 text-blue-600 font-semibold">${coordsStr}</td>`;
     } else if (state.activeMasterTab === 'officer') {
-      tr.innerHTML = `<td class="px-6 py-3 font-semibold text-slate-500">${item.id}</td><td class="px-6 py-3 font-extrabold text-slate-800">${item.name}</td><td class="px-6 py-3"><span class="px-2 py-0.5 bg-blue-50 text-blue-650 border border-blue-100 rounded-lg text-[9px] font-bold">${item.designation}</span></td>`;
+      tr.innerHTML = `<td class="px-3.5 sm:px-6 py-2.5 sm:py-3 font-semibold text-slate-500">${item.id}</td><td class="px-3.5 sm:px-6 py-2.5 sm:py-3 font-extrabold text-slate-800">${item.name}</td><td class="px-3.5 sm:px-6 py-2.5 sm:py-3"><span class="px-2 py-0.5 bg-blue-50 text-blue-650 border border-blue-100 rounded-lg text-[9px] font-bold">${item.designation}</span></td>`;
     }
     
     body.appendChild(tr);
@@ -2465,8 +2543,8 @@ function showInspectionDetail(id) {
     
     tableRowsHtml += `
       <tr class="border-b border-slate-100">
-        <td class="py-2.5 pr-4 text-xs text-slate-450 font-bold w-1/2">${p.label}</td>
-        <td class="py-2.5 text-xs text-slate-800 font-semibold w-1/2">${val}</td>
+        <td class="py-2 sm:py-2.5 pr-2 sm:pr-4 text-xs text-slate-500 font-bold w-1/2">${p.label}</td>
+        <td class="py-2 sm:py-2.5 text-xs text-slate-800 font-semibold w-1/2">${val}</td>
       </tr>
     `;
   });
@@ -2478,7 +2556,7 @@ function showInspectionDetail(id) {
       <div class="space-y-1.5 flex-1">
         <span class="text-[9px] text-slate-400 font-bold uppercase block">निरीक्षण छायाचित्र (Inspection Photo):</span>
         <div class="rounded-xl overflow-hidden border border-slate-200 bg-slate-50 p-1">
-          <img src="${i.photo}" alt="Inspection view" class="w-full h-44 object-cover rounded-lg">
+          <img src="${i.photo}" alt="Inspection view" class="w-full h-40 sm:h-44 object-cover rounded-lg cursor-pointer hover:opacity-95 transition-opacity" onclick="openPhotoLightBox('${escapeJs(i.photo)}', 'निरीक्षण छायाचित्र: ${escapeJs(i.facilityName || i.village)}')">
         </div>
       </div>
     `;
@@ -2488,7 +2566,7 @@ function showInspectionDetail(id) {
       <div class="space-y-1.5 flex-1">
         <span class="text-[9px] text-slate-400 font-bold uppercase block">विभाग कार्रवाई छायाचित्र (Action Taken Photo):</span>
         <div class="rounded-xl overflow-hidden border border-slate-200 bg-slate-50 p-1">
-          <img src="${i.actionPhoto}" alt="Action Taken view" class="w-full h-44 object-cover rounded-lg">
+          <img src="${i.actionPhoto}" alt="Action Taken view" class="w-full h-40 sm:h-44 object-cover rounded-lg cursor-pointer hover:opacity-95 transition-opacity" onclick="openPhotoLightBox('${escapeJs(i.actionPhoto)}', 'विभाग कार्रवाई छायाचित्र: ${escapeJs(i.facilityName || i.village)}')">
         </div>
       </div>
     `;
@@ -2497,7 +2575,7 @@ function showInspectionDetail(id) {
   let mediaContainer = "";
   if (photoSection) {
     mediaContainer = `
-      <div class="flex flex-col sm:flex-row gap-5 pt-4 border-t border-slate-100">
+      <div class="flex flex-col sm:flex-row gap-4 sm:gap-5 pt-4 border-t border-slate-100">
         ${photoSection}
       </div>
     `;
@@ -2508,20 +2586,20 @@ function showInspectionDetail(id) {
   const contentArea = document.getElementById('modal-content-area');
   contentArea.innerHTML = `
     <!-- Detail card layout print styled -->
-    <div class="print-card space-y-5">
+    <div class="print-card space-y-4 sm:space-y-5">
       <!-- Info Header Grid -->
-      <div class="grid grid-cols-2 gap-4 bg-slate-50 p-4 border border-slate-150 rounded-2xl">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 bg-slate-50 p-3.5 sm:p-4 border border-slate-150 rounded-2xl">
         <div>
           <span class="text-[9px] text-slate-400 font-bold uppercase block">${i.facilityName ? 'शासकीय संस्था (Facility)' : 'निरीक्षण स्थल (Location)'}</span>
-          <h4 class="text-xs font-extrabold text-slate-800">${i.facilityName || i.village}</h4>
+          <h4 class="text-xs sm:text-sm font-extrabold text-slate-800">${i.facilityName || i.village}</h4>
           <p class="text-[10px] text-slate-500 font-bold mt-0.5">${i.village} (${cleanBlock})</p>
         </div>
         <div>
           <span class="text-[9px] text-slate-400 font-bold uppercase block">निरीक्षक अधिकारी (Officer)</span>
-          <h4 class="text-xs font-extrabold text-slate-800">${i.officerName}</h4>
+          <h4 class="text-xs sm:text-sm font-extrabold text-slate-800">${i.officerName}</h4>
           <p class="text-[10px] text-slate-500 font-bold mt-0.5">${[i.officerDesignation, i.officerPhone].filter(Boolean).join(' • ') || 'दिनांक: ' + formatDateString(i.date)}</p>
         </div>
-        <div class="col-span-2 border-t border-slate-200/50 pt-2 flex items-center justify-between">
+        <div class="sm:col-span-2 border-t border-slate-200/50 pt-2 flex items-center justify-between">
           <div class="flex items-center space-x-2">
             <span class="text-[9px] text-slate-400 font-bold uppercase">विभाग (Department):</span>
             <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase ${badge.bg} ${badge.color}">${badge.label}</span>
@@ -2531,7 +2609,7 @@ function showInspectionDetail(id) {
       </div>
       
       <!-- Remarks Callout -->
-      <div class="border-l-4 border-blue-500 bg-blue-50/50 p-4 rounded-r-xl">
+      <div class="border-l-4 border-blue-500 bg-blue-50/50 p-3.5 sm:p-4 rounded-r-xl">
         <span class="text-[9px] text-blue-500 font-extrabold uppercase tracking-wide block mb-1">निरीक्षण टिप्पणी / टीप (remarks)</span>
         <p class="text-xs text-slate-700 leading-relaxed font-semibold">${i.remarks}</p>
       </div>
