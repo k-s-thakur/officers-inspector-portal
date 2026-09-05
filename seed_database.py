@@ -6,11 +6,21 @@ import urllib.request
 import urllib.error
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python3 seed_database.py <GOOGLE_APPS_SCRIPT_WEB_APP_URL>")
+    url = sys.argv[1] if len(sys.argv) > 1 else None
+    if not url:
+        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        if os.path.exists(env_path):
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("API_URL="):
+                        url = line.split("=", 1)[1].strip().strip('"\'')
+                        break
+    if not url:
+        print("Usage: python3 seed_database.py [GOOGLE_APPS_SCRIPT_WEB_APP_URL]")
+        print("Or configure API_URL in your .env file.")
         sys.exit(1)
         
-    url = sys.argv[1]
     db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "js", "database.js")
     
     print("Reading local database compiled JS...")
