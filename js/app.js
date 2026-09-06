@@ -683,7 +683,7 @@ function switchTab(tabId) {
     'dashboard': 'अधिकारी डैशबोर्ड (Dashboard)',
     'map': 'जीआईएस भौगोलिक निरीक्षण मानचित्र (GIS Map)',
     'new-inspection': 'आकस्मिक निरीक्षण फॉर्म (New Inspection)',
-    'physical': 'निरीक्षण विज़िट समय-रेखा मैट्रिक्स (Timeline)',
+    'physical': 'निरीक्षण रिपोर्ट (Inspection Report)',
     'reports': 'निरीक्षण इतिहास लॉग एवं प्रतिवेदन (Reports)',
     'master': 'जिला मास्टर डेटाबेस एक्सप्लोरर (Master Data)'
   };
