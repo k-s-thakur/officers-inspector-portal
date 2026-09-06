@@ -166,3 +166,39 @@
     page-break-after: auto;
   }
 }
+
+/* ==========================================================================
+   Inspection Form Typography & Minimum Readable Sizing Enhancements
+   ========================================================================== */
+#inspection-dynamic-form label {
+  font-size: 0.8125rem; /* Minimum 13px on mobile */
+  line-height: 1.35;
+  letter-spacing: 0.015em;
+}
+
+@media (min-width: 640px) {
+  #inspection-dynamic-form label {
+    font-size: 0.875rem; /* 14px on desktop & tablet */
+  }
+}
+
+#inspection-dynamic-form input,
+#inspection-dynamic-form select,
+#inspection-dynamic-form textarea {
+  font-size: 0.875rem !important; /* 14px */
+  line-height: 1.45;
+}
+
+#inspection-dynamic-form input::placeholder,
+#inspection-dynamic-form textarea::placeholder {
+  font-size: 0.8125rem;
+  color: #94a3b8;
+}
+
+@media (min-width: 640px) {
+  #inspection-dynamic-form input::placeholder,
+  #inspection-dynamic-form textarea::placeholder {
+    font-size: 0.875rem;
+  }
+}
+

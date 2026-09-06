@@ -107,6 +107,142 @@ function populateLocationSelects(blockVal, gpSelectId, villageSelectId, selected
   }
 }
 
+// Helper: Normalize location string for fuzzy & multilingual matching
+function normalizeLocationString(str) {
+  if (!str) return "";
+  let s = str.toString().trim().toLowerCase();
+  s = s.replace(/दंतेवाड़ा|दंतेवाड़ा/g, "dantewada")
+       .replace(/गीदम/g, "geedam")
+       .replace(/कटेकल्याण/g, "katekalyan")
+       .replace(/कुआकोंडा|कुवाकोंडा|कुआकोन्डा/g, "kuakonda")
+       .replace(/बालूद/g, "balud")
+       .replace(/कारली/g, "karli")
+       .replace(/मुंडेर/g, "munder")
+       .replace(/[\s\-_().]/g, '');
+  return s;
+}
+
+// Helper: Query all facilities across departments with location filtering
+function getFacilitiesByLocation(options = {}) {
+  const { block = "", panchayat = "", village = "", deptId = "" } = options;
+  const normBlock = getNormalizedBlockKey(block);
+  const cleanV = (village || "").trim();
+  const cleanGp = (panchayat || "").trim();
+  const normV = normalizeLocationString(cleanV);
+  const normGp = normalizeLocationString(cleanGp);
+  const dId = String(deptId || "");
+
+  let list = [];
+
+  // Schools (Dept 1)
+  if (!dId || dId === "1") {
+    (state.schools || []).forEach(s => {
+      list.push({
+        id: s.id,
+        name: s.name,
+        deptId: 1,
+        category: "School & Hostel",
+        badge: getDeptBadge(1),
+        block: s.block,
+        panchayat: s.panchayat || "",
+        village: s.village || "",
+        latitude: s.latitude || "",
+        longitude: s.longitude || "",
+        source: 'school'
+      });
+    });
+  }
+
+  // Health Centers (Dept 2)
+  if (!dId || dId === "2") {
+    (state.health_centers || []).forEach(h => {
+      list.push({
+        id: h.id,
+        name: h.name,
+        deptId: 2,
+        category: "Health Center",
+        badge: getDeptBadge(2),
+        block: h.block,
+        panchayat: h.village || "",
+        village: h.village || "",
+        latitude: h.latitude || "",
+        longitude: h.longitude || "",
+        source: 'health'
+      });
+    });
+  }
+
+  // Anganwadis (Dept 3)
+  if (!dId || dId === "3") {
+    (state.anganwadis || []).forEach(a => {
+      list.push({
+        id: a.id,
+        name: a.name,
+        deptId: 3,
+        category: "Anganwadi Center",
+        badge: getDeptBadge(3),
+        block: a.block,
+        panchayat: a.sector || "",
+        village: a.village || "",
+        latitude: a.latitude || "",
+        longitude: a.longitude || "",
+        code: a.code || "",
+        source: 'anganwadi'
+      });
+    });
+  }
+
+  // Veterinary Centers (Dept 4)
+  if (!dId || dId === "4") {
+    (state.vet_centers || []).forEach(v => {
+      list.push({
+        id: v.id,
+        name: v.name,
+        deptId: 4,
+        category: "Veterinary Clinic",
+        badge: getDeptBadge(4),
+        block: v.block,
+        panchayat: v.village || "",
+        village: v.village || "",
+        latitude: v.latitude || "",
+        longitude: v.longitude || "",
+        source: 'vet'
+      });
+    });
+  }
+
+  // Filter by block if provided
+  if (normBlock) {
+    list = list.filter(item => {
+      const bKey = getNormalizedBlockKey(item.block);
+      return bKey === normBlock;
+    });
+  }
+
+  // Filter by village / panchayat if provided
+  if (normV) {
+    list = list.filter(item => {
+      const itemV = normalizeLocationString(item.village);
+      const itemP = normalizeLocationString(item.panchayat);
+      const itemN = normalizeLocationString(item.name);
+      const matchV = itemV && (itemV === normV || itemV.includes(normV) || normV.includes(itemV));
+      const matchP = itemP && (itemP === normV || itemP.includes(normV) || normV.includes(itemP));
+      const matchN = itemN && itemN.includes(normV);
+      return Boolean(matchV || matchP || matchN);
+    });
+  } else if (normGp) {
+    list = list.filter(item => {
+      const itemP = normalizeLocationString(item.panchayat);
+      const itemV = normalizeLocationString(item.village);
+      const matchP = itemP && (itemP === normGp || itemP.includes(normGp) || normGp.includes(itemP));
+      const matchV = itemV && (itemV === normGp || itemV.includes(normGp) || normGp.includes(itemV));
+      return Boolean(matchP || matchV);
+    });
+  }
+
+  return list;
+}
+
 // Immediate initial state seed from REAL_DATABASE
 if (typeof REAL_DATABASE !== 'undefined' && REAL_DATABASE && REAL_DATABASE.hierarchy) {
   state.hierarchy = REAL_DATABASE.hierarchy;
@@ -154,6 +290,13 @@ function initApp() {
     formVillage.addEventListener('change', onFormVillageChanged);
   }
   
+  // Handle Escape key to close feedback modal
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeInspectionFeedbackModal();
+    }
+  });
+
   // Fetch dynamic database from Google Sheets API
   fetchDatabase();
 }
@@ -1095,6 +1238,9 @@ function onFormDeptChanged(val) {
   
   // Check if draft exists and fill it
   loadDraftForDepartment(deptId);
+
+  // Refresh facilities for chosen department
+  populateFormFacilities();
 }
 
 // Officer Profile Persistence & Auto-fill Logic
@@ -1115,7 +1261,8 @@ function loadCachedOfficerInfo() {
       if (data && data.name && data.name.trim()) {
         nameInput.value = data.name.trim();
         desigInput.value = (data.designation || "").trim();
-        phoneInput.value = (data.phone || "").trim();
+        const cleanPhone = (data.phone || "").replace(/\D/g, '').slice(0, 10);
+        phoneInput.value = cleanPhone;
         
         const previewName = document.getElementById('officer-preview-name');
         const previewDesig = document.getElementById('officer-preview-designation');
@@ -1123,7 +1270,7 @@ function loadCachedOfficerInfo() {
         
         if (previewName) previewName.innerText = data.name.trim();
         if (previewDesig) previewDesig.innerText = (data.designation && data.designation.trim()) ? data.designation.trim() : "निरीक्षक";
-        if (previewPhone) previewPhone.innerText = (data.phone && data.phone.trim()) ? data.phone.trim() : "उपलब्ध नहीं";
+        if (previewPhone) previewPhone.innerText = cleanPhone ? cleanPhone : "उपलब्ध नहीं";
         
         if (previewCard) previewCard.classList.remove('hidden');
         if (cachedBadge) {
@@ -1152,7 +1299,7 @@ function saveOfficerProfile(name, designation, phone) {
   const profile = {
     name: name.trim(),
     designation: designation ? designation.trim() : "",
-    phone: phone ? phone.trim() : ""
+    phone: phone ? phone.trim().replace(/\D/g, '').slice(0, 10) : ""
   };
   localStorage.setItem('officers_inspector_portal_officer_info', JSON.stringify(profile));
 }
@@ -1271,6 +1418,9 @@ function onFormPanchayatChanged() {
     if (uniqueVillages.length === 1) {
       villageSelect.value = uniqueVillages[0];
       if (villageInput) villageInput.value = uniqueVillages[0];
+      populateFormFacilities();
+    } else {
+      populateFormFacilities();
     }
   }
   
@@ -1282,6 +1432,92 @@ function onFormVillageChanged() {
   const villageVal = villageSelect ? villageSelect.value : "";
   const villageInput = document.getElementById('form-input-village');
   if (villageInput) villageInput.value = villageVal;
+  populateFormFacilities();
+  try { saveCurrentFormDraft(); } catch(e){}
+}
+
+function populateFormFacilities(preselectedFacility = "") {
+  const facSelect = document.getElementById('form-select-facility');
+  const facInput = document.getElementById('form-input-facility');
+  if (!facSelect) return;
+
+  const deptVal = document.getElementById('form-select-dept')?.value || "";
+  const blockVal = document.getElementById('form-select-block')?.value || "";
+  const gpVal = document.getElementById('form-select-panchayat')?.value || "";
+  const villageVal = document.getElementById('form-select-village')?.value || document.getElementById('form-input-village')?.value || "";
+
+  facSelect.innerHTML = "";
+
+  if (!villageVal && !gpVal) {
+    facSelect.innerHTML = '<option value="">-- पहले ग्राम / गाँव चुनें (Select Village first) --</option>';
+    return;
+  }
+
+  const facilities = getFacilitiesByLocation({
+    block: blockVal,
+    panchayat: gpVal,
+    village: villageVal,
+    deptId: deptVal
+  });
+
+  if (facilities.length > 0) {
+    facSelect.innerHTML = `<option value="">-- संस्था चुनें (${facilities.length} उपलब्ध) --</option>`;
+    facilities.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f.name;
+      opt.innerText = `${f.name} (${f.category})`;
+      if (f.latitude) opt.setAttribute('data-lat', f.latitude);
+      if (f.longitude) opt.setAttribute('data-lng', f.longitude);
+      facSelect.appendChild(opt);
+    });
+    const customOpt = document.createElement('option');
+    customOpt.value = '__custom__';
+    customOpt.innerText = '✍️ अन्य / नया नाम यहाँ लिखें (Custom / Other)';
+    facSelect.appendChild(customOpt);
+  } else {
+    facSelect.innerHTML = `
+      <option value="">-- इस गाँव में कोई संस्था दर्ज नहीं है --</option>
+      <option value="__custom__">✍️ नया नाम यहाँ लिखें (Custom)</option>
+    `;
+  }
+
+  if (preselectedFacility) {
+    let matched = false;
+    for (let i = 0; i < facSelect.options.length; i++) {
+      if (facSelect.options[i].value.toLowerCase() === preselectedFacility.toLowerCase()) {
+        facSelect.value = facSelect.options[i].value;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      facSelect.value = '__custom__';
+    }
+    if (facInput) facInput.value = preselectedFacility;
+  }
+}
+
+function onFormFacilityChanged(val) {
+  const facInput = document.getElementById('form-input-facility');
+  const facSelect = document.getElementById('form-select-facility');
+  if (!facSelect) return;
+
+  if (val === '__custom__') {
+    if (facInput) {
+      facInput.value = "";
+      facInput.focus();
+    }
+  } else if (val) {
+    if (facInput) facInput.value = val;
+    const selectedOption = facSelect.options[facSelect.selectedIndex];
+    if (selectedOption) {
+      const lat = selectedOption.getAttribute('data-lat');
+      const lng = selectedOption.getAttribute('data-lng');
+      if (lat && document.getElementById('form-gps-lat')) document.getElementById('form-gps-lat').value = lat;
+      if (lng && document.getElementById('form-gps-lng')) document.getElementById('form-gps-lng').value = lng;
+    }
+  }
+
   try { saveCurrentFormDraft(); } catch(e){}
 }
 
@@ -1318,7 +1554,7 @@ function renderFormParameters(deptId) {
     
     // Label
     const label = document.createElement('label');
-    label.className = "text-[10px] font-bold text-slate-450 uppercase tracking-wider";
+    label.className = "text-xs sm:text-sm font-bold text-slate-700 block mb-1.5";
     label.innerText = p.label;
     if (p.required) {
       label.innerHTML += ' <span class="text-red-500">*</span>';
@@ -1330,7 +1566,7 @@ function renderFormParameters(deptId) {
     
     if (p.type === 'boolean') {
       inputEl = document.createElement('select');
-      inputEl.className = "w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500 cursor-pointer";
+      inputEl.className = "w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2.5 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500 cursor-pointer";
       
       const optYes = document.createElement('option');
       optYes.value = "1";
@@ -1345,7 +1581,7 @@ function renderFormParameters(deptId) {
       
     } else if (p.type === 'select') {
       inputEl = document.createElement('select');
-      inputEl.className = "w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500 cursor-pointer";
+      inputEl.className = "w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2.5 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500 cursor-pointer";
       
       p.options.forEach(opt => {
         const o = document.createElement('option');
@@ -1357,13 +1593,13 @@ function renderFormParameters(deptId) {
     } else if (p.type === 'number') {
       inputEl = document.createElement('input');
       inputEl.type = "number";
-      inputEl.className = "w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700";
+      inputEl.className = "w-full text-sm px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700";
       inputEl.placeholder = "संख्या दर्ज करें...";
       
     } else if (p.type === 'textarea') {
       inputEl = document.createElement('textarea');
       inputEl.rows = 2;
-      inputEl.className = "w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700";
+      inputEl.className = "w-full text-sm px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700";
       inputEl.placeholder = p.placeholder || "विवरण दर्ज करें...";
     }
     
@@ -1397,6 +1633,49 @@ function previewImage(input, previewBoxId) {
 
 // 7. Dynamic Form Drafts LocalStorage Autosave
 function setupDraftAutoSave() {
+  // Setup phone number input restrictions (max 10 digits, numbers only)
+  const phoneEl = document.getElementById('form-officer-phone');
+  if (phoneEl) {
+    phoneEl.setAttribute('maxlength', '10');
+    phoneEl.setAttribute('inputmode', 'numeric');
+    phoneEl.setAttribute('pattern', '[0-9]{10}');
+    
+    // Disallow non-numeric characters and enforce max 10 digits in real-time
+    phoneEl.addEventListener('input', () => {
+      const sanitized = phoneEl.value.replace(/\D/g, '').slice(0, 10);
+      if (phoneEl.value !== sanitized) {
+        phoneEl.value = sanitized;
+      }
+    });
+
+    phoneEl.addEventListener('keydown', (e) => {
+      if (['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'].includes(e.key) ||
+          e.ctrlKey || e.metaKey) {
+        return;
+      }
+      if (!/^\d$/.test(e.key)) {
+        e.preventDefault();
+        return;
+      }
+      const hasSelection = phoneEl.selectionStart !== phoneEl.selectionEnd;
+      if (phoneEl.value.replace(/\D/g, '').length >= 10 && !hasSelection) {
+        e.preventDefault();
+      }
+    });
+
+    phoneEl.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const pasteData = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+      const digitsOnly = pasteData.replace(/\D/g, '');
+      const start = phoneEl.selectionStart || 0;
+      const end = phoneEl.selectionEnd || 0;
+      const curVal = phoneEl.value || '';
+      const newVal = (curVal.slice(0, start) + digitsOnly + curVal.slice(end)).replace(/\D/g, '').slice(0, 10);
+      phoneEl.value = newVal;
+      phoneEl.dispatchEvent(new Event('input'));
+    });
+  }
+
   // Listen to input changes in core form fields
   const coreFields = ['form-officer-name', 'form-officer-designation', 'form-officer-phone', 'form-select-dept', 'form-select-block', 'form-input-village', 'form-gps-lat', 'form-gps-lng', 'form-input-date', 'form-input-remarks'];
   coreFields.forEach(fid => {
@@ -1408,7 +1687,7 @@ function setupDraftAutoSave() {
         if (fid.startsWith('form-officer-')) {
           const oName = document.getElementById('form-officer-name')?.value.trim() || "";
           const oDesig = document.getElementById('form-officer-designation')?.value.trim() || "";
-          const oPhone = document.getElementById('form-officer-phone')?.value.trim() || "";
+          const oPhone = document.getElementById('form-officer-phone')?.value.trim().replace(/\D/g, '').slice(0, 10) || "";
           if (oName) {
             saveOfficerProfile(oName, oDesig, oPhone);
           }
@@ -1431,7 +1710,7 @@ function saveCurrentFormDraft() {
       deptId: deptId,
       officerName: document.getElementById('form-officer-name')?.value || "",
       officerDesignation: document.getElementById('form-officer-designation')?.value || "",
-      officerPhone: document.getElementById('form-officer-phone')?.value || "",
+      officerPhone: (document.getElementById('form-officer-phone')?.value || "").replace(/\D/g, '').slice(0, 10),
       block: document.getElementById('form-select-block')?.value || "",
       panchayat: document.getElementById('form-select-panchayat')?.value || "",
       village: villageVal,
@@ -1477,7 +1756,7 @@ function loadDraftForDepartment(deptId) {
   if (draft.officerName && !document.getElementById('form-officer-name').value) {
     document.getElementById('form-officer-name').value = draft.officerName;
     document.getElementById('form-officer-designation').value = draft.officerDesignation || "";
-    document.getElementById('form-officer-phone').value = draft.officerPhone || "";
+    document.getElementById('form-officer-phone').value = (draft.officerPhone || "").replace(/\D/g, '').slice(0, 10);
   }
   
   // Fill core fields
@@ -1505,6 +1784,7 @@ function loadDraftForDepartment(deptId) {
             }
           }
           document.getElementById('form-input-village').value = draft.village;
+          populateFormFacilities(draft.facilityName || "");
         }
       }
     }
@@ -1540,6 +1820,8 @@ function clearCurrentForm() {
   const vSelect = document.getElementById('form-select-village');
   if (vSelect) vSelect.innerHTML = '<option value="">-- पहले ग्राम पंचायत चुनें (Select GP first) --</option>';
   document.getElementById('form-input-village').value = "";
+  const facSelect = document.getElementById('form-select-facility');
+  if (facSelect) facSelect.innerHTML = '<option value="">-- पहले ग्राम / गाँव चुनें (Select Village first) --</option>';
   const facEl = document.getElementById('form-input-facility');
   if (facEl) facEl.value = "";
   document.getElementById('form-gps-lat').value = "";
@@ -1574,29 +1856,236 @@ function clearCurrentForm() {
   }
 }
 
-// 8. Submit New Inspection Log
+// 8. Submit New Inspection Log with Interactive Feedback Dialog Box
+function closeInspectionFeedbackModal() {
+  const modal = document.getElementById('inspection-feedback-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function onFeedbackModalBackdropClick(e) {
+  if (e.target.id === 'inspection-feedback-modal') {
+    closeInspectionFeedbackModal();
+  }
+}
+
+function focusMissingField(fieldId) {
+  closeInspectionFeedbackModal();
+  setTimeout(() => {
+    // If officer profile fields are missing, open edit mode
+    if (fieldId && fieldId.startsWith('form-officer-')) {
+      toggleOfficerEditMode(true);
+    }
+    
+    // Ensure cards are visible if department selected
+    const deptId = document.getElementById('form-select-dept')?.value;
+    if (deptId) {
+      document.getElementById('form-parameters-card')?.classList.remove('hidden');
+      document.getElementById('form-media-card')?.classList.remove('hidden');
+    }
+    
+    const target = document.getElementById(fieldId);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.focus();
+      target.classList.add('ring-2', 'ring-red-500', 'border-red-400');
+      setTimeout(() => {
+        target.classList.remove('ring-2', 'ring-red-500', 'border-red-400');
+      }, 3500);
+    }
+  }, 150);
+}
+
+function showInspectionValidationModal(missingFields) {
+  const modal = document.getElementById('inspection-feedback-modal');
+  const body = document.getElementById('inspection-feedback-body');
+  if (!modal || !body) return;
+
+  const firstFieldId = missingFields[0]?.id || "";
+
+  const listHtml = missingFields.map((m, idx) => `
+    <li class="flex items-start justify-between gap-3 p-2.5 rounded-xl hover:bg-amber-100/70 transition-colors cursor-pointer border border-transparent hover:border-amber-200" onclick="focusMissingField('${m.id}')" title="इस फ़ील्ड पर जाएं और भरें">
+      <div class="flex items-start space-x-2.5 text-left">
+        <span class="w-5 h-5 rounded-full bg-amber-200 text-amber-800 text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">${idx + 1}</span>
+        <span class="text-xs sm:text-sm font-bold text-slate-800">${escapeHtml(m.name)}</span>
+      </div>
+      <span class="text-xs font-extrabold text-blue-600 hover:text-blue-800 shrink-0 self-center whitespace-nowrap flex items-center space-x-1">
+        <span>भरें</span>
+        <i class="fa-solid fa-arrow-right text-[10px]"></i>
+      </span>
+    </li>
+  `).join('');
+
+  body.innerHTML = `
+    <div class="w-16 h-16 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center text-3xl mx-auto mb-4 shadow-lg shadow-amber-500/20">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+    </div>
+    
+    <h3 class="text-lg sm:text-xl font-extrabold text-slate-850">फॉर्म सबमिट नहीं हो पाया (Incomplete Form)</h3>
+    <p class="text-xs sm:text-sm text-slate-600 mt-1">
+      फॉर्म को सफलतापूर्वक सहेजने हेतु नीचे दिए गए <strong class="text-amber-800 font-bold">${missingFields.length} अनिवार्य फ़ील्ड / पैरामीटर</strong> दर्ज करना बाकी है:
+    </p>
+
+    <div class="mt-4 p-3 bg-amber-50/80 border border-amber-200/90 rounded-2xl text-left max-h-64 overflow-y-auto">
+      <ul class="space-y-1.5">
+        ${listHtml}
+      </ul>
+    </div>
+
+    <div class="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+      <button type="button" onclick="focusMissingField('${firstFieldId}')" class="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-750 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-blue-500/20 flex items-center justify-center space-x-2 transition-all active:scale-95">
+        <i class="fa-solid fa-pen-to-square"></i>
+        <span>खाली फ़ील्ड भरें (Complete Form)</span>
+      </button>
+      <button type="button" onclick="closeInspectionFeedbackModal()" class="w-full sm:w-auto px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs sm:text-sm font-semibold transition-colors">
+        <span>बंद करें (Dismiss)</span>
+      </button>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+}
+
+function showInspectionSuccessModal(item) {
+  const modal = document.getElementById('inspection-feedback-modal');
+  const body = document.getElementById('inspection-feedback-body');
+  if (!modal || !body) return;
+
+  const deptObj = (typeof REAL_DATABASE !== 'undefined' && REAL_DATABASE.departments) 
+    ? REAL_DATABASE.departments.find(d => d.id === parseInt(item.departmentId)) 
+    : null;
+  const deptName = deptObj ? deptObj.name : "विभाग";
+
+  body.innerHTML = `
+    <div class="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-3xl mx-auto mb-4 shadow-lg shadow-emerald-500/25">
+      <i class="fa-solid fa-circle-check"></i>
+    </div>
+    
+    <h3 class="text-lg sm:text-xl font-extrabold text-slate-850">निरीक्षण सफलतापूर्वक दर्ज हो गया!</h3>
+    <p class="text-xs sm:text-sm text-emerald-700 font-semibold mt-1">
+      निरीक्षण रिपोर्ट पोर्टल में सुरक्षित सहेज ली गई है।
+    </p>
+
+    <div class="mt-5 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-left space-y-2.5 text-xs sm:text-sm">
+      <div class="flex justify-between items-center py-1 border-b border-slate-200/70">
+        <span class="text-slate-500 font-bold uppercase text-[10px] sm:text-xs tracking-wider">शासकीय संस्था (Site)</span>
+        <span class="font-extrabold text-slate-900 text-right">${escapeHtml(item.facilityName || '-')}</span>
+      </div>
+      <div class="flex justify-between items-center py-1 border-b border-slate-200/70">
+        <span class="text-slate-500 font-bold uppercase text-[10px] sm:text-xs tracking-wider">विभाग (Dept)</span>
+        <span class="font-bold text-blue-700 text-right">${escapeHtml(deptName)}</span>
+      </div>
+      <div class="flex justify-between items-center py-1 border-b border-slate-200/70">
+        <span class="text-slate-500 font-bold uppercase text-[10px] sm:text-xs tracking-wider">स्थल (Location)</span>
+        <span class="font-semibold text-slate-800 text-right">${escapeHtml(item.village)}, ${escapeHtml(item.block)}</span>
+      </div>
+      <div class="flex justify-between items-center py-1 border-b border-slate-200/70">
+        <span class="text-slate-500 font-bold uppercase text-[10px] sm:text-xs tracking-wider">निरीक्षण अधिकारी</span>
+        <span class="font-semibold text-slate-800 text-right">${escapeHtml(item.officerName)} (${escapeHtml(item.officerDesignation)})</span>
+      </div>
+      <div class="flex justify-between items-center py-1 border-b border-slate-200/70">
+        <span class="text-slate-500 font-bold uppercase text-[10px] sm:text-xs tracking-wider">दिनांक (Date)</span>
+        <span class="font-bold text-slate-800 text-right">${escapeHtml(item.date)}</span>
+      </div>
+      <div class="flex justify-between items-center pt-1">
+        <span class="text-slate-500 font-bold uppercase text-[10px] sm:text-xs tracking-wider">स्थिति (Status)</span>
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800">
+          <i class="fa-solid fa-circle-check mr-1.5 text-[11px] text-emerald-600"></i>सहेजा गया (Saved)
+        </span>
+      </div>
+    </div>
+
+    <div class="mt-6 flex flex-col sm:flex-row items-center justify-center gap-2.5">
+      <button type="button" onclick="closeInspectionFeedbackModal(); switchTab('dashboard');" class="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-750 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-blue-500/20 flex items-center justify-center space-x-1.5 transition-all active:scale-95">
+        <i class="fa-solid fa-chart-pie"></i>
+        <span>डैशबोर्ड देखें (Dashboard)</span>
+      </button>
+      <button type="button" onclick="closeInspectionFeedbackModal(); showInspectionDetail('${escapeJs(item.id)}');" class="w-full sm:w-auto px-4 py-2.5 bg-slate-850 hover:bg-slate-750 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition-colors flex items-center justify-center space-x-1.5">
+        <i class="fa-solid fa-file-lines"></i>
+        <span>रिपोर्ट प्रपत्र देखें</span>
+      </button>
+      <button type="button" onclick="closeInspectionFeedbackModal();" class="w-full sm:w-auto px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs sm:text-sm font-semibold transition-colors">
+        <span>+ नया निरीक्षण</span>
+      </button>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+}
+
 function handleFormSubmit(e) {
   e.preventDefault();
   
+  const missing = [];
+
   const officerName = document.getElementById('form-officer-name')?.value.trim() || "";
   const officerDesignation = document.getElementById('form-officer-designation')?.value.trim() || "";
-  const officerPhone = document.getElementById('form-officer-phone')?.value.trim() || "";
-  
-  const deptId = document.getElementById('form-select-dept').value;
-  const block = document.getElementById('form-select-block').value;
-  const gp = document.getElementById('form-select-panchayat') ? document.getElementById('form-select-panchayat').value : "";
-  const village = document.getElementById('form-select-village')?.value || document.getElementById('form-input-village')?.value || "";
-  const remarks = document.getElementById('form-input-remarks').value;
-  const date = document.getElementById('form-input-date').value;
-  
-  if (!officerName || !officerDesignation || !officerPhone) {
-    showToast("error", "त्रुटि", "कृपया अधिकारी का नाम, पदनाम एवं फोन नंबर दर्ज करें!");
-    toggleOfficerEditMode(true);
-    return;
+  const rawOfficerPhone = document.getElementById('form-officer-phone')?.value.trim() || "";
+  const officerPhone = rawOfficerPhone.replace(/\D/g, '').slice(0, 10);
+
+  if (!officerName) {
+    missing.push({ name: "निरीक्षण अधिकारी का नाम (Officer Name)", id: "form-officer-name" });
   }
-  
-  if (!deptId || !block || !village || !remarks || !date) {
-    showToast("error", "त्रुटि", "कृपया सभी अनिवार्य (*) फ़ील्ड भरें!");
+  if (!officerDesignation) {
+    missing.push({ name: "अधिकारी का पद / पदनाम (Designation)", id: "form-officer-designation" });
+  }
+  if (!officerPhone) {
+    missing.push({ name: "मोबाइल / फोन नंबर (Phone Number)", id: "form-officer-phone" });
+  } else if (officerPhone.length !== 10) {
+    missing.push({ name: "मोबाइल नंबर पूरा 10 अंकों का होना अनिवार्य है (10-Digit Mobile)", id: "form-officer-phone" });
+  }
+
+  const deptSelect = document.getElementById('form-select-dept');
+  const deptId = deptSelect ? deptSelect.value : "";
+  if (!deptId) {
+    missing.push({ name: "निरीक्षण विभाग का चयन (Department)", id: "form-select-dept" });
+  }
+
+  const blockSelect = document.getElementById('form-select-block');
+  const block = blockSelect ? blockSelect.value : "";
+  if (!block) {
+    missing.push({ name: "जनपद / विकासखंड (Block)", id: "form-select-block" });
+  }
+
+  const gp = document.getElementById('form-select-panchayat')?.value || "";
+  const village = document.getElementById('form-select-village')?.value || document.getElementById('form-input-village')?.value || "";
+  if (!village) {
+    missing.push({ name: "ग्राम पंचायत एवं गाँव (Village)", id: "form-select-village" });
+  }
+
+  const facilityName = (document.getElementById('form-input-facility')?.value || document.getElementById('form-select-facility')?.value || "").replace('__custom__', '').trim();
+  if (!facilityName) {
+    missing.push({ name: "शासकीय संस्था / साइट का नाम (Facility / Site Name)", id: "form-input-facility" });
+  }
+
+  const dateInput = document.getElementById('form-input-date');
+  const date = dateInput ? dateInput.value.trim() : "";
+  if (!date) {
+    missing.push({ name: "निरीक्षण दिनांक (Inspection Date)", id: "form-input-date" });
+  }
+
+  // Dynamic Department Parameters Validation
+  if (deptId) {
+    const parameters = getParametersByDepartmentId(parseInt(deptId));
+    parameters.forEach(p => {
+      if (p.required) {
+        const field = document.getElementById(`param_field_${p.id}`);
+        const val = field ? field.value : "";
+        if (!field || val === "" || val === null || val === undefined) {
+          missing.push({ name: `निरीक्षण मापदंड: "${p.label}"`, id: `param_field_${p.id}` });
+        }
+      }
+    });
+  }
+
+  const remarksInput = document.getElementById('form-input-remarks');
+  const remarks = remarksInput ? remarksInput.value.trim() : "";
+  if (!remarks) {
+    missing.push({ name: "निरीक्षण टिप्पणी / टीप (Overall Remarks)", id: "form-input-remarks" });
+  }
+
+  // If any required field or checklist parameter is missing, display popup dialog box!
+  if (missing.length > 0) {
+    showInspectionValidationModal(missing);
     return;
   }
   
@@ -1644,7 +2133,9 @@ function handleFormSubmit(e) {
     block: block + " (" + getBlockCode(block) + ")",
     panchayat: gp || village.toUpperCase(),
     village: village,
-    facilityName: "",
+    facilityName: facilityName,
+    latitude: document.getElementById('form-gps-lat')?.value || "",
+    longitude: document.getElementById('form-gps-lng')?.value || "",
     date: date,
     officerName: officerName,
     officerDesignation: officerDesignation,
@@ -1688,8 +2179,10 @@ function handleFormSubmit(e) {
   localStorage.removeItem(`officers_inspector_portal_draft_${deptId}`);
   delete state.drafts[deptId];
   
-  // Success Toast
-  const deptObj = REAL_DATABASE.departments.find(d => d.id === parseInt(deptId));
+  // Success Toast & Interactive Dialog Modal
+  const deptObj = (typeof REAL_DATABASE !== 'undefined' && REAL_DATABASE.departments) 
+    ? REAL_DATABASE.departments.find(d => d.id === parseInt(deptId)) 
+    : null;
   const deptName = deptObj ? deptObj.name : "विभाग";
   showToast("success", "सफलतापूर्वक सहेजा गया", `${village} (${deptName}) का निरीक्षण सफलतापूर्वक सहेज लिया गया है।`);
   
@@ -1697,34 +2190,33 @@ function handleFormSubmit(e) {
   clearCurrentForm();
   loadCachedOfficerInfo();
   
-  // Switch to Dashboard
-  switchTab('dashboard');
+  // Show dedicated Success Popup Modal with full details and action buttons!
+  showInspectionSuccessModal(newInspection);
 }
 
-// 9. Inspection Visits & Timeline Matrix Logic
-function populateTimelineFilters() {
-  const blockSelect = document.getElementById('timeline-block-filter');
-  if (blockSelect && blockSelect.options.length <= 1) {
-    blockSelect.innerHTML = '<option value="">सभी विकासखंड (All Blocks)</option>';
-    ['DANTEWADA', 'GEEDAM', 'KATEKALYAN', 'KUAKONDA'].forEach(b => {
-      const opt = document.createElement('option');
-      opt.value = b;
-      opt.innerText = (state.hierarchy && state.hierarchy[b]?.name) ? state.hierarchy[b].name : b;
-      blockSelect.appendChild(opt);
-    });
-  }
+function onTimelineDeptChanged() {
+  const blockVal = document.getElementById('timeline-block-filter')?.value || '';
+  const gpVal = document.getElementById('timeline-panchayat-filter')?.value || '';
+  const villageVal = document.getElementById('timeline-village-filter')?.value || '';
+  const deptVal = document.getElementById('timeline-dept-filter')?.value || '';
+  populateTimelineFacilities(blockVal, gpVal, villageVal, deptVal);
+  renderInspectionTimelineTable();
 }
 
 function onTimelineBlockChanged() {
   const blockVal = document.getElementById('timeline-block-filter')?.value || '';
   const gpSelect = document.getElementById('timeline-panchayat-filter');
-  if (!gpSelect) return;
+  const vSelect = document.getElementById('timeline-village-filter');
+  const facSelect = document.getElementById('timeline-facility-filter');
   
-  gpSelect.innerHTML = '<option value="">सभी पंचायतें (All GPs)</option>';
+  if (gpSelect) gpSelect.innerHTML = '<option value="">सभी पंचायतें (All GPs)</option>';
+  if (vSelect) vSelect.innerHTML = '<option value="">सभी गाँव (All Villages)</option>';
+  if (facSelect) facSelect.innerHTML = '<option value="">सभी संस्थाएं (All Sites)</option>';
   
   const normBlock = getNormalizedBlockKey(blockVal);
-  if (normBlock && state.hierarchy && state.hierarchy[normBlock]) {
-    const gps = Object.keys(state.hierarchy[normBlock].panchayats || {}).sort();
+  const hierarchySource = getHierarchySource();
+  if (normBlock && hierarchySource && hierarchySource[normBlock]) {
+    const gps = Object.keys(hierarchySource[normBlock].panchayats || {}).sort();
     gps.forEach(gp => {
       const opt = document.createElement('option');
       opt.value = gp;
@@ -1732,12 +2224,82 @@ function onTimelineBlockChanged() {
       gpSelect.appendChild(opt);
     });
   }
-  
+
+  const deptVal = document.getElementById('timeline-dept-filter')?.value || '';
+  populateTimelineFacilities(blockVal, '', '', deptVal);
   renderInspectionTimelineTable();
 }
 
 function onTimelinePanchayatChanged() {
+  const blockVal = document.getElementById('timeline-block-filter')?.value || '';
+  const gpVal = document.getElementById('timeline-panchayat-filter')?.value || '';
+  populateTimelineVillages(blockVal, gpVal);
+
+  const deptVal = document.getElementById('timeline-dept-filter')?.value || '';
+  populateTimelineFacilities(blockVal, gpVal, '', deptVal);
   renderInspectionTimelineTable();
+}
+
+function onTimelineVillageChanged() {
+  const blockVal = document.getElementById('timeline-block-filter')?.value || '';
+  const gpVal = document.getElementById('timeline-panchayat-filter')?.value || '';
+  const villageVal = document.getElementById('timeline-village-filter')?.value || '';
+  const deptVal = document.getElementById('timeline-dept-filter')?.value || '';
+
+  populateTimelineFacilities(blockVal, gpVal, villageVal, deptVal);
+  renderInspectionTimelineTable();
+}
+
+function onTimelineFacilityChanged() {
+  renderInspectionTimelineTable();
+}
+
+function populateTimelineVillages(blockVal, gpVal) {
+  const vSelect = document.getElementById('timeline-village-filter');
+  if (!vSelect) return;
+  vSelect.innerHTML = '<option value="">सभी गाँव (All Villages)</option>';
+  if (!blockVal) return;
+
+  const normBlock = getNormalizedBlockKey(blockVal);
+  const hierarchySource = getHierarchySource();
+  const blockData = normBlock ? hierarchySource[normBlock] : null;
+  if (!blockData) return;
+
+  let vList = [];
+  if (gpVal && blockData.panchayats && blockData.panchayats[gpVal]) {
+    vList = blockData.panchayats[gpVal];
+  } else if (blockData.villages) {
+    vList = Array.from(blockData.villages);
+  }
+
+  const uniqueVillages = Array.from(new Set(vList)).sort((a, b) => a.localeCompare(b));
+  uniqueVillages.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v;
+    opt.innerText = v;
+    vSelect.appendChild(opt);
+  });
+}
+
+function populateTimelineFacilities(blockVal, gpVal, villageVal, deptVal) {
+  const facSelect = document.getElementById('timeline-facility-filter');
+  if (!facSelect) return;
+  facSelect.innerHTML = '<option value="">सभी संस्थाएं (All Sites)</option>';
+
+  const facilities = getFacilitiesByLocation({
+    block: blockVal,
+    panchayat: gpVal,
+    village: villageVal,
+    deptId: deptVal
+  });
+
+  const uniqueFacilities = Array.from(new Set(facilities.map(f => f.name))).sort((a, b) => a.localeCompare(b));
+  uniqueFacilities.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.innerText = name;
+    facSelect.appendChild(opt);
+  });
 }
 
 function clearTimelineFilters() {
@@ -1749,8 +2311,197 @@ function clearTimelineFilters() {
   if (b) b.value = "";
   const gp = document.getElementById('timeline-panchayat-filter');
   if (gp) gp.innerHTML = '<option value="">सभी पंचायतें (All GPs)</option>';
+  const v = document.getElementById('timeline-village-filter');
+  if (v) v.innerHTML = '<option value="">सभी गाँव (All Villages)</option>';
+  const f = document.getElementById('timeline-facility-filter');
+  if (f) f.innerHTML = '<option value="">सभी संस्थाएं (All Sites)</option>';
   
+  const sitesBar = document.getElementById('timeline-village-sites-bar');
+  if (sitesBar) sitesBar.classList.add('hidden');
+
   renderInspectionTimelineTable();
+}
+
+// Village Sites Modal Handler & State
+let currentVillageSitesModalState = {
+  village: "",
+  block: "",
+  panchayat: "",
+  deptId: "all",
+  search: ""
+};
+
+function triggerOpenVillageSitesModal() {
+  const village = document.getElementById('timeline-village-filter')?.value || "";
+  const block = document.getElementById('timeline-block-filter')?.value || "";
+  const gp = document.getElementById('timeline-panchayat-filter')?.value || "";
+  const deptId = document.getElementById('timeline-dept-filter')?.value || "";
+  openVillageSitesModal(village, block, gp, deptId);
+}
+
+function openVillageSitesModal(village, block = "", panchayat = "", deptId = "") {
+  const modal = document.getElementById('village-sites-modal');
+  if (!modal) return;
+
+  currentVillageSitesModalState.village = village;
+  currentVillageSitesModalState.block = block;
+  currentVillageSitesModalState.panchayat = panchayat;
+  currentVillageSitesModalState.deptId = deptId || "all";
+  currentVillageSitesModalState.search = "";
+
+  const title = document.getElementById('village-sites-modal-title');
+  if (title) {
+    title.innerText = village ? `${village} - शासकीय संस्थाएं` : `शासकीय संस्थाएं (Village Sites)`;
+  }
+
+  const searchInput = document.getElementById('village-sites-modal-search');
+  if (searchInput) searchInput.value = "";
+
+  setVillageSitesModalCategoryFilter(deptId ? String(deptId) : 'all', false);
+
+  modal.classList.remove('hidden');
+  document.body.classList.add('overflow-hidden');
+
+  renderVillageSitesModalGrid();
+}
+
+function closeVillageSitesModal() {
+  const modal = document.getElementById('village-sites-modal');
+  if (modal) modal.classList.add('hidden');
+  document.body.classList.remove('overflow-hidden');
+}
+
+function setVillageSitesModalCategoryFilter(cat, shouldRender = true) {
+  currentVillageSitesModalState.deptId = cat;
+  const tabBtns = document.querySelectorAll('.village-sites-tab-btn');
+  tabBtns.forEach(btn => {
+    if (btn.getAttribute('data-cat') === String(cat)) {
+      btn.className = "village-sites-tab-btn px-3 py-1 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-sm transition-all";
+    } else {
+      btn.className = "village-sites-tab-btn px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all";
+    }
+  });
+  if (shouldRender) {
+    renderVillageSitesModalGrid();
+  }
+}
+
+function filterVillageSitesModalCards() {
+  const q = (document.getElementById('village-sites-modal-search')?.value || '').toLowerCase().trim();
+  currentVillageSitesModalState.search = q;
+  renderVillageSitesModalGrid();
+}
+
+function renderVillageSitesModalGrid() {
+  const grid = document.getElementById('village-sites-modal-grid');
+  const emptyState = document.getElementById('village-sites-modal-empty');
+  const countBadge = document.getElementById('village-sites-modal-count-badge');
+  if (!grid) return;
+
+  const { village, block, panchayat, deptId, search } = currentVillageSitesModalState;
+
+  let facs = getFacilitiesByLocation({
+    block: block,
+    panchayat: panchayat,
+    village: village,
+    deptId: deptId === 'all' ? '' : deptId
+  });
+
+  if (search) {
+    facs = facs.filter(f => 
+      f.name.toLowerCase().includes(search) || 
+      (f.village || '').toLowerCase().includes(search) ||
+      (f.panchayat || '').toLowerCase().includes(search) ||
+      f.category.toLowerCase().includes(search)
+    );
+  }
+
+  if (countBadge) {
+    countBadge.innerText = `कुल संस्थाएं: ${facs.length}`;
+  }
+
+  if (facs.length === 0) {
+    grid.innerHTML = "";
+    if (emptyState) emptyState.classList.remove('hidden');
+    return;
+  }
+  if (emptyState) emptyState.classList.add('hidden');
+
+  grid.innerHTML = "";
+  facs.forEach(f => {
+    const visits = (state.inspections || []).filter(i => 
+      (i.facilityName && i.facilityName.toLowerCase() === f.name.toLowerCase()) ||
+      (!i.facilityName && i.village && i.village.toLowerCase() === (f.village || '').toLowerCase() && parseInt(i.departmentId) === f.deptId)
+    );
+
+    visits.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const lastVisit = visits[0];
+    const deptBadge = getDeptBadge(f.deptId);
+
+    const card = document.createElement('div');
+    card.className = "bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-blue-200 transition-all flex flex-col justify-between space-y-3";
+
+    let visitStatusHtml = "";
+    if (visits.length > 0) {
+      visitStatusHtml = `
+        <div class="flex items-center space-x-2 text-xs">
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 flex items-center space-x-1">
+            <i class="fa-solid fa-circle-check text-emerald-600 text-[10px]"></i>
+            <span>${visits.length} विज़िट्स पूर्ण</span>
+          </span>
+          <span class="text-[11px] text-slate-500 font-medium">अंतिम: <strong>${formatDateString(lastVisit.date)}</strong></span>
+        </div>
+      `;
+    } else {
+      visitStatusHtml = `
+        <div class="flex items-center space-x-2 text-xs">
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200 flex items-center space-x-1">
+            <i class="fa-solid fa-clock-rotate-left text-amber-500 text-[10px]"></i>
+            <span>निरीक्षण लंबित (0 Visits)</span>
+          </span>
+        </div>
+      `;
+    }
+
+    const gpsDisplay = (f.latitude && f.longitude) ? 
+      `<span class="text-[10px] text-slate-400 font-medium flex items-center space-x-1" title="Lat: ${f.latitude}, Lng: ${f.longitude}">
+         <i class="fa-solid fa-location-crosshairs text-blue-500"></i>
+         <span>जियो-टैग्ड</span>
+       </span>` : '';
+
+    card.innerHTML = `
+      <div>
+        <div class="flex items-start justify-between gap-2 mb-1.5">
+          <span class="px-2 py-0.5 rounded text-[9px] font-extrabold uppercase ${deptBadge.bg} ${deptBadge.color}">
+            <i class="fa-solid ${deptBadge.icon} mr-1"></i>${deptBadge.label}
+          </span>
+          ${gpsDisplay}
+        </div>
+        <h4 class="text-sm font-extrabold text-slate-850 hover:text-blue-600 transition-colors">${escapeHtml(f.name)}</h4>
+        <div class="text-xs text-slate-500 font-semibold mt-1 flex items-center space-x-2">
+          <span><i class="fa-solid fa-map-pin text-slate-400 mr-1 text-[10px]"></i>गाँव: <strong>${escapeHtml(f.village || village || '-')}</strong></span>
+          ${f.panchayat ? `<span>• पं: ${escapeHtml(f.panchayat)}</span>` : ''}
+          <span>• ब्लॉक: ${escapeHtml(f.block || block || '-')}</span>
+        </div>
+      </div>
+
+      <div class="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        ${visitStatusHtml}
+        <button type="button" onclick="startNewInspectionForFacility('${escapeJs(String(f.deptId))}', '${escapeJs(f.block || block)}', '${escapeJs(f.panchayat || panchayat)}', '${escapeJs(f.village || village)}', '${escapeJs(f.name)}', '${escapeJs(String(f.latitude || ''))}', '${escapeJs(String(f.longitude || ''))}')" 
+                class="px-3 py-1.5 bg-blue-600 hover:bg-blue-750 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center justify-center space-x-1.5 active:scale-95 shrink-0">
+          <i class="fa-solid fa-plus text-[10px]"></i>
+          <span>+ नया निरीक्षण करें</span>
+        </button>
+      </div>
+    `;
+
+    grid.appendChild(card);
+  });
+}
+
+function startNewInspectionForFacility(deptId, block, panchayat, village, facilityName, lat = "", lng = "") {
+  closeVillageSitesModal();
+  triggerNewVisitForLocation(deptId, block, panchayat, village, facilityName, lat, lng);
 }
 
 function renderInspectionTimelineTable() {
@@ -1764,10 +2515,12 @@ function renderInspectionTimelineTable() {
   const deptFilter = document.getElementById('timeline-dept-filter')?.value || '';
   const blockFilter = document.getElementById('timeline-block-filter')?.value || '';
   const panchayatFilter = document.getElementById('timeline-panchayat-filter')?.value || '';
+  const villageFilter = document.getElementById('timeline-village-filter')?.value || '';
+  const facilityFilter = document.getElementById('timeline-facility-filter')?.value || '';
 
   const normSelectedBlock = getNormalizedBlockKey(blockFilter);
 
-  // Group inspections by departmentId + block + panchayat + village
+  // Group inspections by departmentId + block + panchayat + village + facilityName
   const groupsMap = new Map();
 
   (state.inspections || []).forEach(insp => {
@@ -1775,9 +2528,10 @@ function renderInspectionTimelineTable() {
     const blockKey = getNormalizedBlockKey(insp.block || '') || (insp.block || '').trim().toUpperCase();
     const gp = (insp.panchayat || '').trim();
     const village = (insp.village || '').trim();
+    const facName = (insp.facilityName || '').trim();
     
     // Composite key for grouping
-    const key = `${deptId}__${blockKey}__${gp.toLowerCase()}__${village.toLowerCase()}`;
+    const key = `${deptId}__${blockKey}__${gp.toLowerCase()}__${village.toLowerCase()}__${facName.toLowerCase()}`;
     
     if (!groupsMap.has(key)) {
       groupsMap.set(key, {
@@ -1786,11 +2540,68 @@ function renderInspectionTimelineTable() {
         block: insp.block,
         panchayat: gp,
         village: village,
+        facilityName: facName,
+        latitude: insp.latitude || "",
+        longitude: insp.longitude || "",
         visits: []
       });
     }
     groupsMap.get(key).visits.push(insp);
   });
+
+  // When a village is selected or searched, incorporate all database facilities for that village
+  if (villageFilter || panchayatFilter) {
+    const knownFacilities = getFacilitiesByLocation({
+      block: blockFilter,
+      panchayat: panchayatFilter,
+      village: villageFilter,
+      deptId: deptFilter
+    });
+
+    knownFacilities.forEach(f => {
+      const deptId = String(f.deptId);
+      const blockKey = getNormalizedBlockKey(f.block) || (f.block || '').trim().toUpperCase();
+      const gp = (f.panchayat || '').trim();
+      const village = (f.village || villageFilter || '').trim();
+      const facName = (f.name || '').trim();
+
+      const key = `${deptId}__${blockKey}__${gp.toLowerCase()}__${village.toLowerCase()}__${facName.toLowerCase()}`;
+      if (!groupsMap.has(key)) {
+        groupsMap.set(key, {
+          key: key,
+          departmentId: f.deptId,
+          block: f.block,
+          panchayat: gp,
+          village: village,
+          facilityName: facName,
+          latitude: f.latitude || "",
+          longitude: f.longitude || "",
+          visits: []
+        });
+      } else {
+        const existing = groupsMap.get(key);
+        if (!existing.latitude && f.latitude) existing.latitude = f.latitude;
+        if (!existing.longitude && f.longitude) existing.longitude = f.longitude;
+      }
+    });
+  }
+
+  // Update Village Sites quick banner
+  const villageSitesBar = document.getElementById('timeline-village-sites-bar');
+  const villageSitesInfo = document.getElementById('timeline-village-sites-info');
+  if (villageFilter) {
+    const allVillageFacs = getFacilitiesByLocation({
+      block: blockFilter,
+      panchayat: panchayatFilter,
+      village: villageFilter
+    });
+    if (villageSitesBar && villageSitesInfo) {
+      villageSitesBar.classList.remove('hidden');
+      villageSitesInfo.innerHTML = `<strong>${escapeHtml(villageFilter)}</strong> गाँव में कुल <strong>${allVillageFacs.length}</strong> शासकीय संस्थाएं (Sites) उपलब्ध हैं`;
+    }
+  } else {
+    if (villageSitesBar) villageSitesBar.classList.add('hidden');
+  }
 
   // Sort visits within each group chronologically (oldest to newest: Visit 1, Visit 2, ...)
   const allGroups = Array.from(groupsMap.values()).map(g => {
@@ -1824,7 +2635,20 @@ function renderInspectionTimelineTable() {
       if (!matchGP) return false;
     }
 
+    if (villageFilter) {
+      const gVillage = (g.village || '').toLowerCase();
+      const vFilter = villageFilter.toLowerCase();
+      if (!gVillage.includes(vFilter) && !vFilter.includes(gVillage)) return false;
+    }
+
+    if (facilityFilter) {
+      const gFac = (g.facilityName || '').toLowerCase();
+      const fFilter = facilityFilter.toLowerCase();
+      if (!gFac.includes(fFilter)) return false;
+    }
+
     if (searchVal) {
+      const matchFacility = (g.facilityName || '').toLowerCase().includes(searchVal);
       const matchVillage = (g.village || '').toLowerCase().includes(searchVal);
       const matchPanchayat = (g.panchayat || '').toLowerCase().includes(searchVal);
       const matchBlock = (g.block || '').toLowerCase().includes(searchVal);
@@ -1834,7 +2658,7 @@ function renderInspectionTimelineTable() {
         (v.remarks || '').toLowerCase().includes(searchVal) ||
         (v.id || '').toLowerCase().includes(searchVal)
       );
-      if (!matchVillage && !matchPanchayat && !matchBlock && !matchDept && !matchInVisits) {
+      if (!matchFacility && !matchVillage && !matchPanchayat && !matchBlock && !matchDept && !matchInVisits) {
         return false;
       }
     }
@@ -1856,7 +2680,7 @@ function renderInspectionTimelineTable() {
   }
   if (emptyState) emptyState.classList.add('hidden');
 
-  // Determine max visits across filtered groups
+  // Determine max visits across filtered groups (minimum 1)
   const maxVisits = Math.max(1, ...filteredGroups.map(g => g.visits.length));
 
   // Build thead
@@ -1864,7 +2688,7 @@ function renderInspectionTimelineTable() {
     <tr>
       <th class="px-3.5 py-3 sticky left-0 bg-slate-100/95 z-20 w-12 text-center border-r border-slate-200">क्र.</th>
       <th class="px-4 py-3 sticky left-12 bg-slate-100/95 z-20 min-w-[130px] border-r border-slate-200">विभाग</th>
-      <th class="px-4 py-3 sticky left-[172px] bg-slate-100/95 z-20 min-w-[200px] border-r border-slate-200 shadow-md">निरीक्षण स्थल (Location)</th>
+      <th class="px-4 py-3 sticky left-[172px] bg-slate-100/95 z-20 min-w-[220px] border-r border-slate-200 shadow-md">शासकीय संस्था एवं स्थल (Site & Village)</th>
       <th class="px-3 py-3 text-center min-w-[100px] border-r border-slate-200">कुल विज़िट</th>
       <th class="px-4 py-3 text-center min-w-[160px] bg-blue-50/70 border-r border-slate-200">कार्यवाही (Action)</th>
   `;
@@ -1885,24 +2709,34 @@ function renderInspectionTimelineTable() {
     const cleanBlock = (g.block || '').replace(' (221622)', '').replace(' (221608)', '').replace(' (221615)', '').replace(' (221631)', '');
     const gpDisplay = g.panchayat ? `<span class="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold mr-1">${escapeHtml(g.panchayat)}</span>` : '';
 
+    const siteDisplayName = g.facilityName || g.village || 'शासकीय संस्था';
+
     let rowHtml = `
       <td class="px-3.5 py-3 text-center font-bold text-slate-400 sticky left-0 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-200">${idx + 1}</td>
       <td class="px-4 py-3 sticky left-12 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-200">
-        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase shrink-0 ${deptBadge.bg} ${deptBadge.color}">${deptBadge.label}</span>
-      </td>
-      <td class="px-4 py-3 sticky left-[172px] bg-white group-hover:bg-slate-50 z-10 border-r border-slate-200 shadow-md">
-        <div class="font-extrabold text-slate-800 text-xs">${gpDisplay}${escapeHtml(g.village || 'दंतेवाड़ा')}</div>
-        <div class="text-[10px] text-slate-400 font-semibold mt-0.5">${escapeHtml(cleanBlock)}</div>
-      </td>
-      <td class="px-3 py-3 text-center border-r border-slate-200">
-        <span class="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-100 rounded-full text-[10px] font-extrabold whitespace-nowrap">
-          ${g.visits.length} विज़िट${g.visits.length > 1 ? '्स' : ''}
+        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase shrink-0 ${deptBadge.bg} ${deptBadge.color}">
+          <i class="fa-solid ${deptBadge.icon} mr-1"></i>${deptBadge.label}
         </span>
       </td>
+      <td class="px-4 py-3 sticky left-[172px] bg-white group-hover:bg-slate-50 z-10 border-r border-slate-200 shadow-md">
+        <div class="font-extrabold text-slate-850 text-xs flex items-center space-x-1.5">
+          <i class="fa-solid fa-building-columns text-blue-600 text-[10px] shrink-0"></i>
+          <span class="truncate">${escapeHtml(siteDisplayName)}</span>
+        </div>
+        <div class="text-[10px] text-slate-500 font-semibold mt-0.5">
+          ${gpDisplay}गाँव: <strong>${escapeHtml(g.village || '-')}</strong> • ${escapeHtml(cleanBlock)}
+        </div>
+      </td>
+      <td class="px-3 py-3 text-center border-r border-slate-200">
+        ${g.visits.length > 0 ? 
+          `<span class="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-100 rounded-full text-[10px] font-extrabold whitespace-nowrap">${g.visits.length} विज़िट${g.visits.length > 1 ? '्स' : ''}</span>` :
+          `<span class="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold whitespace-nowrap">0 विज़िट</span>`
+        }
+      </td>
       <td class="px-4 py-3 text-center border-r border-slate-200 bg-blue-50/20">
-        <button type="button" onclick="triggerNewVisitForLocation('${escapeJs(String(g.departmentId))}', '${escapeJs(g.block)}', '${escapeJs(g.panchayat)}', '${escapeJs(g.village)}')" 
+        <button type="button" onclick="triggerNewVisitForLocation('${escapeJs(String(g.departmentId))}', '${escapeJs(g.block)}', '${escapeJs(g.panchayat)}', '${escapeJs(g.village)}', '${escapeJs(g.facilityName || '')}', '${escapeJs(String(g.latitude || ''))}', '${escapeJs(String(g.longitude || ''))}')" 
                 class="px-3 py-1.5 bg-blue-600 hover:bg-blue-750 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center justify-center space-x-1.5 mx-auto active:scale-95 whitespace-nowrap"
-                title="इस स्थल के लिए आगामी निरीक्षण दर्ज करें">
+                title="इस संस्था हेतु नया निरीक्षण दर्ज करें">
           <i class="fa-solid fa-plus text-[10px]"></i>
           <span>New Inspection</span>
         </button>
@@ -1914,7 +2748,7 @@ function renderInspectionTimelineTable() {
       if (item) {
         let photoMarkup = "";
         if (item.photo) {
-          const capText = `Visit ${v+1}: ${g.village || ''} (${formatDateString(item.date)})`;
+          const capText = `Visit ${v+1}: ${siteDisplayName} (${formatDateString(item.date)})`;
           photoMarkup = `
             <div class="mt-2 pt-2 border-t border-slate-200/60 flex flex-col items-center">
               <span class="text-[9px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">Visit Photo</span>
@@ -1938,7 +2772,7 @@ function renderInspectionTimelineTable() {
 
         rowHtml += `
           <td class="px-3.5 py-3 border-r border-slate-200 align-top bg-white">
-            <div class="p-3 bg-slate-50 hover:bg-blue-50/40 rounded-xl border border-slate-200/80 transition-all cursor-pointer hover:border-blue-300 shadow-xs space-y-1.5" 
+            <div class="space-y-1.5 cursor-pointer p-2 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-colors" 
                  onclick="showInspectionDetail('${escapeJs(item.id)}')" title="पूर्ण निरीक्षण विवरण देखें">
               <div class="flex items-center justify-between gap-1 border-b border-slate-200/50 pb-1.5">
                 <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-[9px] font-extrabold">Visit ${v+1}</span>
@@ -1951,6 +2785,15 @@ function renderInspectionTimelineTable() {
               <p class="text-[10px] text-slate-500 font-medium line-clamp-2 italic">${escapeHtml(item.remarks || 'कोई विशेष टीप नहीं')}</p>
               ${photoMarkup}
             </div>
+          </td>
+        `;
+      } else if (g.visits.length === 0 && v === 0) {
+        rowHtml += `
+          <td class="px-3.5 py-4 border-r border-slate-200 align-middle text-center bg-slate-50/40 text-slate-400">
+            <span class="inline-flex items-center space-x-1 px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200/80 rounded-lg text-[11px] font-bold">
+              <i class="fa-solid fa-clock-rotate-left text-amber-500 text-[10px]"></i>
+              <span>निरीक्षण लंबित</span>
+            </span>
           </td>
         `;
       } else {
@@ -1967,7 +2810,7 @@ function renderInspectionTimelineTable() {
   });
 }
 
-function triggerNewVisitForLocation(deptId, block, panchayat, village) {
+function triggerNewVisitForLocation(deptId, block, panchayat, village, facilityName = "", lat = "", lng = "") {
   switchTab('new-inspection');
 
   // Set department
@@ -2015,6 +2858,37 @@ function triggerNewVisitForLocation(deptId, block, panchayat, village) {
     if (vInput) vInput.value = village;
   }
 
+  // Set facility name if provided
+  if (facilityName) {
+    populateFormFacilities(facilityName);
+    const facSelect = document.getElementById('form-select-facility');
+    const facInput = document.getElementById('form-input-facility');
+    if (facSelect) {
+      let matched = false;
+      for (let i = 0; i < facSelect.options.length; i++) {
+        if (facSelect.options[i].value.toLowerCase() === facilityName.toLowerCase()) {
+          facSelect.value = facSelect.options[i].value;
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) {
+        facSelect.value = '__custom__';
+      }
+    }
+    if (facInput) facInput.value = facilityName;
+  }
+
+  // Set Lat / Lng if provided
+  if (lat) {
+    const latInput = document.getElementById('form-gps-lat');
+    if (latInput) latInput.value = lat;
+  }
+  if (lng) {
+    const lngInput = document.getElementById('form-gps-lng');
+    if (lngInput) lngInput.value = lng;
+  }
+
   // Ensure date is today's date in DD/MM/YYYY
   const dateInput = document.getElementById('form-input-date');
   if (dateInput) {
@@ -2032,7 +2906,8 @@ function triggerNewVisitForLocation(deptId, block, panchayat, village) {
     }
   }, 100);
 
-  showToast("info", "निरीक्षण फॉर्म तैयार", `${village || ''} (${panchayat || block}) हेतु आगामी निरीक्षण फॉर्म लोड किया गया।`);
+  const displayTarget = facilityName || village || 'चयनित स्थल';
+  showToast("info", "निरीक्षण फॉर्म तैयार", `${displayTarget} हेतु निरीक्षण फॉर्म लोड किया गया।`);
 }
 
 function openPhotoLightBox(src, caption) {

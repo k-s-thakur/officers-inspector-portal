@@ -347,21 +347,21 @@
 
         <!-- ==================== NEW INSPECTION VIEW ==================== -->
         <section id="view-new-inspection" class="max-w-4xl mx-auto hidden">
-          <form id="inspection-dynamic-form" onsubmit="handleFormSubmit(event)" class="space-y-6">
+          <form id="inspection-dynamic-form" novalidate onsubmit="handleFormSubmit(event)" class="space-y-6">
             <input type="hidden" id="form-dept-id">
             
             <!-- Step 1: Inspecting Officer Information (Top text fields) -->
             <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
               <div class="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div>
-                  <h3 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide flex items-center space-x-2">
+                  <h3 class="text-base sm:text-lg font-extrabold text-slate-850 uppercase tracking-wide flex items-center space-x-2">
                     <i class="fa-solid fa-user-tie text-blue-600"></i>
                     <span>1. निरीक्षण अधिकारी विवरण (Inspecting Officer Details)</span>
                   </h3>
-                  <p class="text-xs text-slate-450 mt-1">निरीक्षण करने वाले अधिकारी का नाम, पदनाम एवं मोबाइल नंबर दर्ज करें।</p>
+                  <p class="text-xs sm:text-sm text-slate-500 mt-1">निरीक्षण करने वाले अधिकारी का नाम, पदनाम एवं मोबाइल नंबर दर्ज करें।</p>
                 </div>
                 <!-- Profile Status indicator -->
-                <div id="officer-cached-badge" class="hidden items-center space-x-1.5 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-[11px] font-bold border border-emerald-200 shrink-0">
+                <div id="officer-cached-badge" class="hidden items-center space-x-1.5 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold border border-emerald-200 shrink-0">
                   <i class="fa-solid fa-circle-check text-emerald-500"></i>
                   <span>पूर्व विवरण स्वतः लोड</span>
                 </div>
@@ -370,21 +370,21 @@
               <!-- Officer Active Info Preview (when cached) -->
               <div id="officer-preview-card" class="hidden bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-slate-50 border border-blue-100 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div class="flex items-center space-x-3.5">
-                  <div class="w-11 h-11 rounded-xl bg-blue-600 text-white flex items-center justify-center text-lg font-bold shadow-md shadow-blue-500/20 shrink-0">
+                  <div class="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xl font-bold shadow-md shadow-blue-500/20 shrink-0">
                     <i class="fa-solid fa-user-check"></i>
                   </div>
                   <div>
                     <div class="flex items-center space-x-2 flex-wrap">
-                      <span id="officer-preview-name" class="text-sm font-extrabold text-slate-900"></span>
-                      <span id="officer-preview-designation" class="text-[11px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md"></span>
+                      <span id="officer-preview-name" class="text-base font-extrabold text-slate-900"></span>
+                      <span id="officer-preview-designation" class="text-xs font-bold bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-md"></span>
                     </div>
-                    <div class="flex items-center space-x-3 text-xs text-slate-500 mt-1 font-medium">
-                      <span><i class="fa-solid fa-phone text-slate-400 mr-1 text-[11px]"></i><span id="officer-preview-phone"></span></span>
-                      <span class="text-[11px] text-emerald-600 font-semibold">• पूर्व निरीक्षण डेटा से सक्रिय</span>
+                    <div class="flex items-center space-x-3 text-xs sm:text-sm text-slate-600 mt-1 font-medium">
+                      <span><i class="fa-solid fa-phone text-slate-400 mr-1 text-xs sm:text-sm"></i><span id="officer-preview-phone"></span></span>
+                      <span class="text-xs text-emerald-600 font-semibold">• पूर्व निरीक्षण डेटा से सक्रिय</span>
                     </div>
                   </div>
                 </div>
-                <button type="button" onclick="toggleOfficerEditMode(true)" class="self-start sm:self-center px-3.5 py-1.5 text-xs font-bold text-blue-600 bg-white hover:bg-blue-50 border border-blue-200 rounded-lg shadow-sm transition-colors flex items-center space-x-1.5">
+                <button type="button" onclick="toggleOfficerEditMode(true)" class="self-start sm:self-center px-4 py-2 text-xs sm:text-sm font-bold text-blue-600 bg-white hover:bg-blue-50 border border-blue-200 rounded-lg shadow-sm transition-colors flex items-center space-x-1.5">
                   <i class="fa-solid fa-pen-to-square"></i>
                   <span>विवरण बदलें (Edit)</span>
                 </button>
@@ -393,38 +393,38 @@
               <!-- Text Inputs Container -->
               <div id="officer-input-fields" class="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div>
-                  <label for="form-officer-name" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">
+                  <label for="form-officer-name" class="text-xs sm:text-sm font-bold text-slate-700 block mb-1.5">
                     अधिकारी का नाम (Officer Name) <span class="text-red-500">*</span>
                   </label>
                   <div class="relative">
-                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-xs">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-sm">
                       <i class="fa-solid fa-user"></i>
                     </span>
-                    <input type="text" id="form-officer-name" required placeholder="अपना पूरा नाम दर्ज करें..." class="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
+                    <input type="text" id="form-officer-name" required placeholder="अपना पूरा नाम दर्ज करें..." class="w-full text-sm pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
                   </div>
                 </div>
 
                 <div>
-                  <label for="form-officer-designation" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">
+                  <label for="form-officer-designation" class="text-xs sm:text-sm font-bold text-slate-700 block mb-1.5">
                     पद / पदनाम (Designation) <span class="text-red-500">*</span>
                   </label>
                   <div class="relative">
-                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-xs">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-sm">
                       <i class="fa-solid fa-id-badge"></i>
                     </span>
-                    <input type="text" id="form-officer-designation" required placeholder="उदा. तहसीलदार, SDM, सीईओ..." class="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
+                    <input type="text" id="form-officer-designation" required placeholder="उदा. तहसीलदार, SDM, सीईओ..." class="w-full text-sm pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
                   </div>
                 </div>
 
                 <div>
-                  <label for="form-officer-phone" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">
+                  <label for="form-officer-phone" class="text-xs sm:text-sm font-bold text-slate-700 block mb-1.5">
                     मोबाइल / फोन नंबर (Phone Number) <span class="text-red-500">*</span>
                   </label>
                   <div class="relative">
-                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-xs">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-sm">
                       <i class="fa-solid fa-phone"></i>
                     </span>
-                    <input type="tel" id="form-officer-phone" required placeholder="10 अंकों का मोबाइल नंबर..." class="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
+                    <input type="tel" id="form-officer-phone" required maxlength="10" inputmode="numeric" pattern="[0-9]{10}" autocomplete="tel" title="कृपया 10 अंकों का मोबाइल नंबर दर्ज करें" placeholder="10 अंकों का मोबाइल नंबर..." class="w-full text-sm pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
                   </div>
                 </div>
               </div>
@@ -433,17 +433,17 @@
             <!-- Step 2: Location details (Block, village selection) -->
             <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
               <div class="border-b border-slate-100 pb-4">
-                <h3 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide flex items-center space-x-2">
+                <h3 class="text-base sm:text-lg font-extrabold text-slate-850 uppercase tracking-wide flex items-center space-x-2">
                   <i class="fa-solid fa-map-location-dot text-blue-500"></i>
                   <span>2. स्थान विवरण (Location Details)</span>
                 </h3>
-                <p class="text-xs text-slate-450 mt-1">निरीक्षण विभाग एवं क्षेत्र (ब्लॉक, ग्राम पंचायत, गाँव) का चयन करें।</p>
+                <p class="text-xs sm:text-sm text-slate-500 mt-1">निरीक्षण विभाग एवं क्षेत्र (ब्लॉक, ग्राम पंचायत, गाँव) का चयन करें।</p>
               </div>
 
               <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <label for="form-select-dept" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">विभाग (Department) <span class="text-red-500">*</span></label>
-                  <select id="form-select-dept" onchange="onFormDeptChanged(this.value)" required class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                  <label for="form-select-dept" class="text-xs sm:text-sm font-bold text-slate-700 block mb-1.5">विभाग (Department) <span class="text-red-500">*</span></label>
+                  <select id="form-select-dept" onchange="onFormDeptChanged(this.value)" required class="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2.5 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                     <option value="">-- विभाग का चयन करें (Select Dept) --</option>
                     <option value="1">शाला / आश्रम / छात्रावास विभाग (School & Hostel)</option>
                     <option value="2">स्वास्थ्य विभाग (Health Department)</option>
@@ -454,8 +454,8 @@
                 </div>
 
                 <div>
-                  <label for="form-select-block" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">जनपद / विकासखंड (Block) <span class="text-red-500">*</span></label>
-                  <select id="form-select-block" onchange="onFormBlockChanged()" required class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                  <label for="form-select-block" class="text-xs sm:text-sm font-bold text-slate-700 block mb-1.5">जनपद / विकासखंड (Block) <span class="text-red-500">*</span></label>
+                  <select id="form-select-block" onchange="onFormBlockChanged()" required class="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2.5 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                     <option value="">-- विकासखंड का चयन करें (Select Block) --</option>
                     <option value="DANTEWADA">दंतेवाड़ा (Dantewada)</option>
                     <option value="GEEDAM">गीदम (Geedam)</option>
@@ -465,33 +465,44 @@
                 </div>
 
                 <div>
-                  <label for="form-select-panchayat" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">ग्राम पंचायत (Gram Panchayat) <span class="text-red-500">*</span></label>
-                  <select id="form-select-panchayat" onchange="onFormPanchayatChanged()" required class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                  <label for="form-select-panchayat" class="text-xs sm:text-sm font-bold text-slate-700 block mb-1.5">ग्राम पंचायत (Gram Panchayat) <span class="text-red-500">*</span></label>
+                  <select id="form-select-panchayat" onchange="onFormPanchayatChanged()" required class="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2.5 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                     <option value="">-- पहले विकासखंड चुनें (Select Block first) --</option>
                   </select>
                 </div>
 
                 <div>
-                  <label for="form-select-village" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">ग्राम / गाँव (Village) <span class="text-red-500">*</span></label>
-                  <select id="form-select-village" onchange="onFormVillageChanged()" required class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                  <label for="form-select-village" class="text-xs sm:text-sm font-bold text-slate-700 block mb-1.5">ग्राम / गाँव (Village) <span class="text-red-500">*</span></label>
+                  <select id="form-select-village" onchange="onFormVillageChanged()" required class="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2.5 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                     <option value="">-- पहले ग्राम पंचायत चुनें (Select GP first) --</option>
                   </select>
                   <input type="hidden" id="form-input-village" value="">
                 </div>
 
+                <div class="md:col-span-2">
+                  <label for="form-select-facility" class="text-xs sm:text-sm font-bold text-slate-700 block mb-1.5">शासकीय संस्था / साइट (Facility / Site Name) <span class="text-red-500">*</span></label>
+                  <div class="flex flex-col sm:flex-row gap-2">
+                    <select id="form-select-facility" onchange="onFormFacilityChanged(this.value)" class="flex-1 text-sm bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2.5 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                      <option value="">-- पहले ग्राम / गाँव चुनें (Select Village first) --</option>
+                    </select>
+                    <input type="text" id="form-input-facility" placeholder="या संस्था का नाम यहाँ लिखें..." class="flex-1 text-sm px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
+                  </div>
+                  <p class="text-xs text-slate-500 mt-1.5">गाँव चुनते ही उस गाँव के सभी स्कूल / आंगनवाड़ी / स्वास्थ्य केंद्र लोड हो जाएंगे। सूची से चुनें या नया नाम लिखें।</p>
+                </div>
+
                 <!-- Geolocation coordinates (capture live or enter manual) -->
                 <div>
-                  <label class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">भौगोलिक निर्देशांक (GPS Coordinates)</label>
+                  <label class="text-xs sm:text-sm font-bold text-slate-700 block mb-1.5">भौगोलिक निर्देशांक (GPS Coordinates)</label>
                   <div class="flex space-x-2">
                     <div class="relative flex-1">
-                      <span class="absolute inset-y-0 left-0 flex items-center pl-2.5 text-[10px] font-bold text-slate-400">Lat:</span>
-                      <input type="number" step="any" id="form-gps-lat" placeholder="18.9000" class="w-full text-xs pl-9 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
+                      <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-xs font-bold text-slate-400">Lat:</span>
+                      <input type="number" step="any" id="form-gps-lat" placeholder="18.9000" class="w-full text-sm pl-11 pr-2 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
                     </div>
                     <div class="relative flex-1">
-                      <span class="absolute inset-y-0 left-0 flex items-center pl-2.5 text-[10px] font-bold text-slate-400">Lng:</span>
-                      <input type="number" step="any" id="form-gps-lng" placeholder="81.3500" class="w-full text-xs pl-9 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
+                      <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-xs font-bold text-slate-400">Lng:</span>
+                      <input type="number" step="any" id="form-gps-lng" placeholder="81.3500" class="w-full text-sm pl-11 pr-2 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
                     </div>
-                    <button type="button" onclick="captureGPS()" class="bg-blue-600 hover:bg-blue-750 text-white px-3.5 py-2 rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-blue-500/10 transition-colors">
+                    <button type="button" onclick="captureGPS()" class="bg-blue-600 hover:bg-blue-750 text-white px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold flex items-center space-x-1.5 shadow-md shadow-blue-500/10 transition-colors">
                       <i class="fa-solid fa-location-crosshairs"></i>
                       <span class="hidden sm:inline">जीपीएस</span>
                     </button>
@@ -499,11 +510,11 @@
                 </div>
 
                 <div>
-                  <label for="form-input-date" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">निरीक्षण दिनांक (Inspection Date - DD/MM/YYYY) <span class="text-red-500">*</span></label>
+                  <label for="form-input-date" class="text-xs sm:text-sm font-bold text-slate-700 block mb-1.5">निरीक्षण दिनांक (Inspection Date - DD/MM/YYYY) <span class="text-red-500">*</span></label>
                   <div class="relative">
-                    <input type="text" id="form-input-date" required placeholder="DD/MM/YYYY" class="w-full text-xs pl-3 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
-                    <button type="button" onclick="triggerDatePicker()" title="कैलेंडर से दिनांक चुनें" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-blue-600 transition-colors">
-                      <i class="fa-solid fa-calendar-days text-sm"></i>
+                    <input type="text" id="form-input-date" required placeholder="DD/MM/YYYY" class="w-full text-sm pl-3.5 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
+                    <button type="button" onclick="triggerDatePicker()" title="कैलेंडर से दिनांक चुनें" class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-blue-600 transition-colors">
+                      <i class="fa-solid fa-calendar-days text-base"></i>
                     </button>
                     <input type="date" id="native-date-picker" class="sr-only absolute right-0 bottom-0 opacity-0 pointer-events-none" onchange="onNativeDatePicked(this.value)">
                   </div>
@@ -514,11 +525,11 @@
             <!-- Step 3: Dynamic Parameters Checklist -->
             <div id="form-parameters-card" class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6 hidden">
               <div class="border-b border-slate-100 pb-4">
-                <h3 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide flex items-center space-x-2">
+                <h3 class="text-base sm:text-lg font-extrabold text-slate-850 uppercase tracking-wide flex items-center space-x-2">
                   <i class="fa-solid fa-list-check text-blue-500"></i>
                   <span>3. निरीक्षण मापदंड (Inspection Parameters Checklist)</span>
                 </h3>
-                <p class="text-xs text-slate-450 mt-1">विभाग-वार मापदंडों का सत्यापन विवरण भरें।</p>
+                <p class="text-xs sm:text-sm text-slate-500 mt-1">विभाग-वार मापदंडों का सत्यापन विवरण भरें।</p>
               </div>
 
               <!-- Dynamically populated parameters grid -->
@@ -530,50 +541,50 @@
             <!-- Step 4: Remarks and Photo Upload -->
             <div id="form-media-card" class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6 hidden">
               <div class="border-b border-slate-100 pb-4">
-                <h3 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide flex items-center space-x-2">
+                <h3 class="text-base sm:text-lg font-extrabold text-slate-850 uppercase tracking-wide flex items-center space-x-2">
                   <i class="fa-solid fa-camera text-blue-500"></i>
                   <span>4. अधिकारी टीप एवं फोटोग्राफ (Remarks & Photos)</span>
                 </h3>
-                <p class="text-xs text-slate-450 mt-1">अधिकारी का विशेष अभिमत टिप्पणी दर्ज करें और निरीक्षण की तस्वीरें संलग्न करें।</p>
+                <p class="text-xs sm:text-sm text-slate-500 mt-1">अधिकारी का विशेष अभिमत टिप्पणी दर्ज करें और निरीक्षण की तस्वीरें संलग्न करें।</p>
               </div>
 
               <div class="space-y-4">
                 <div>
-                  <label for="form-input-remarks" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">निरीक्षण टिप्पणी / टीप (Overall Remarks) <span class="text-red-500">*</span></label>
-                  <textarea id="form-input-remarks" required rows="3" placeholder="भ्रमण के दौरान पाए गए प्रमुख बिंदु, सुधार की आवश्यकता, या विशेष निर्देश यहाँ दर्ज करें..." class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700"></textarea>
+                  <label for="form-input-remarks" class="text-xs sm:text-sm font-bold text-slate-700 block mb-1.5">निरीक्षण टिप्पणी / टीप (Overall Remarks) <span class="text-red-500">*</span></label>
+                  <textarea id="form-input-remarks" required rows="3" placeholder="भ्रमण के दौरान पाए गए प्रमुख बिंदु, सुधार की आवश्यकता, या विशेष निर्देश यहाँ दर्ज करें..." class="w-full text-sm px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700"></textarea>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <!-- Inspection Photo -->
                   <div>
-                    <label class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">निरीक्षण फोटोग्राफ (Inspection Photo)</label>
+                    <label class="text-xs sm:text-sm font-bold text-slate-700 block mb-1.5">निरीक्षण फोटोग्राफ (Inspection Photo)</label>
                     <div class="flex items-center space-x-4 border border-dashed border-slate-200 rounded-xl p-4 bg-slate-50">
                       <div class="w-16 h-16 rounded-lg bg-slate-200 border border-slate-300 flex items-center justify-center text-slate-400 overflow-hidden shrink-0" id="photo-preview-box">
                         <i class="fa-solid fa-image text-xl"></i>
                       </div>
                       <div class="flex-1">
                         <input type="file" id="form-file-photo" accept="image/*" onchange="previewImage(this, 'photo-preview-box')" class="hidden">
-                        <button type="button" onclick="document.getElementById('form-file-photo').click()" class="bg-white hover:bg-slate-100 text-slate-700 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold shadow-sm transition-colors">
+                        <button type="button" onclick="document.getElementById('form-file-photo').click()" class="bg-white hover:bg-slate-100 text-slate-700 px-4 py-2 border border-slate-200 rounded-lg text-xs sm:text-sm font-bold shadow-sm transition-colors">
                           <i class="fa-solid fa-upload mr-1"></i> फोटो चुनें
                         </button>
-                        <p class="text-[9px] text-slate-450 mt-1">कैमरे से फोटो लें या जेपीईजी फाइल अपलोड करें।</p>
+                        <p class="text-xs text-slate-500 mt-1.5">कैमरे से फोटो लें या जेपीईजी फाइल अपलोड करें।</p>
                       </div>
                     </div>
                   </div>
 
                   <!-- Action taken by department -->
                   <div>
-                    <label class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1.5">विभाग द्वारा की गई कार्यवाही फ़ोटो (Action Taken Photo)</label>
+                    <label class="text-xs sm:text-sm font-bold text-slate-700 block mb-1.5">विभाग द्वारा की गई कार्यवाही फ़ोटो (Action Taken Photo)</label>
                     <div class="flex items-center space-x-4 border border-dashed border-slate-200 rounded-xl p-4 bg-slate-50">
                       <div class="w-16 h-16 rounded-lg bg-slate-200 border border-slate-300 flex items-center justify-center text-slate-400 overflow-hidden shrink-0" id="action-photo-preview-box">
                         <i class="fa-solid fa-image text-xl"></i>
                       </div>
                       <div class="flex-1">
                         <input type="file" id="form-file-action-photo" accept="image/*" onchange="previewImage(this, 'action-photo-preview-box')" class="hidden">
-                        <button type="button" onclick="document.getElementById('form-file-action-photo').click()" class="bg-white hover:bg-slate-100 text-slate-700 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold shadow-sm transition-colors">
+                        <button type="button" onclick="document.getElementById('form-file-action-photo').click()" class="bg-white hover:bg-slate-100 text-slate-700 px-4 py-2 border border-slate-200 rounded-lg text-xs sm:text-sm font-bold shadow-sm transition-colors">
                           <i class="fa-solid fa-upload mr-1"></i> फोटो चुनें
                         </button>
-                        <p class="text-[9px] text-slate-450 mt-1">(वैकल्पिक) विभाग द्वारा किए गए सुधारात्मक कार्य की फ़ोटो।</p>
+                        <p class="text-xs text-slate-500 mt-1.5">(वैकल्पिक) विभाग द्वारा किए गए सुधारात्मक कार्य की फ़ोटो।</p>
                       </div>
                     </div>
                   </div>
@@ -583,15 +594,15 @@
 
             <!-- Form Action buttons -->
             <div class="flex items-center justify-between pt-4 pb-12 btn-action-container no-print">
-              <div class="text-[11px] text-slate-400 italic flex items-center space-x-1.5">
+              <div class="text-xs sm:text-sm text-slate-500 italic flex items-center space-x-1.5">
                 <i class="fa-solid fa-cloud-arrow-up text-emerald-500 animate-pulse"></i>
                 <span id="form-draft-status">प्रारूप स्वतः सहेजा जा रहा है (Auto-Saved)</span>
               </div>
               <div class="flex items-center space-x-3">
-                <button type="button" onclick="clearCurrentForm()" class="px-4 py-2 text-xs font-semibold text-slate-650 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl shadow-sm transition-colors">
+                <button type="button" onclick="clearCurrentForm()" class="px-5 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl shadow-sm transition-colors">
                   प्रपत्र खाली करें (Clear Form)
                 </button>
-                <button type="submit" class="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-750 rounded-xl shadow-md flex items-center space-x-1.5 transition-colors shadow-blue-500/10">
+                <button type="submit" class="px-6 py-2.5 text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-750 rounded-xl shadow-md flex items-center space-x-2 transition-colors shadow-blue-500/10">
                   <i class="fa-solid fa-circle-check"></i>
                   <span>निरीक्षण सहेजें (Submit Inspection)</span>
                 </button>
@@ -620,21 +631,21 @@
           </div>
 
           <!-- Filter Matrix Card -->
-          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
               <div class="lg:col-span-2">
                 <label for="timeline-search" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">खोजें (Search)</label>
                 <div class="relative">
                   <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-xs">
                     <i class="fa-solid fa-magnifying-glass"></i>
                   </span>
-                  <input type="text" id="timeline-search" oninput="renderInspectionTimelineTable()" placeholder="गाँव, पंचायत, विभाग, अधिकारी, टीप..." class="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
+                  <input type="text" id="timeline-search" oninput="renderInspectionTimelineTable()" placeholder="संस्था, गाँव, पंचायत, विभाग, अधिकारी..." class="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
                 </div>
               </div>
 
               <div>
                 <label for="timeline-dept-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">विभाग (Department)</label>
-                <select id="timeline-dept-filter" onchange="renderInspectionTimelineTable()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                <select id="timeline-dept-filter" onchange="onTimelineDeptChanged()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                   <option value="">सभी विभाग (All)</option>
                   <option value="1">School & Hostel</option>
                   <option value="2">Health Department</option>
@@ -662,10 +673,39 @@
                 </select>
               </div>
 
-              <div class="flex items-end">
-                <button type="button" onclick="clearTimelineFilters()" class="w-full text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 py-2 px-3 rounded-lg transition-colors flex items-center justify-center space-x-1">
+              <div>
+                <label for="timeline-village-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">गाँव (Village)</label>
+                <select id="timeline-village-filter" onchange="onTimelineVillageChanged()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">सभी गाँव (All Villages)</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="timeline-facility-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">शासकीय संस्था (Site)</label>
+                <select id="timeline-facility-filter" onchange="onTimelineFacilityChanged()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">सभी संस्थाएं (All Sites)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Bottom action & quick village sites popup button -->
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
+              <div id="timeline-village-sites-bar" class="hidden flex items-center space-x-3 bg-blue-50 border border-blue-200 px-3.5 py-1.5 rounded-xl">
+                <span class="flex h-2 w-2 relative">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+                </span>
+                <span id="timeline-village-sites-info" class="text-xs font-bold text-blue-900"></span>
+                <button type="button" onclick="triggerOpenVillageSitesModal()" class="px-3 py-1 bg-blue-600 hover:bg-blue-750 text-white rounded-lg text-xs font-bold shadow-sm flex items-center space-x-1.5 transition-colors">
+                  <i class="fa-solid fa-layer-group text-[10px]"></i>
+                  <span>गाँव की सभी संस्थाएं देखें (View All Sites)</span>
+                </button>
+              </div>
+
+              <div class="flex items-center space-x-2 ml-auto">
+                <button type="button" onclick="clearTimelineFilters()" class="text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 py-2 px-3.5 rounded-lg transition-colors flex items-center space-x-1.5">
                   <i class="fa-solid fa-rotate-left"></i>
-                  <span>रीसेट</span>
+                  <span>फ़िल्टर रीसेट</span>
                 </button>
               </div>
             </div>
@@ -866,6 +906,15 @@
 
   <!-- ==================== MODALS ==================== -->
 
+  <!-- Inspection Submission Feedback & Status Modal Dialog -->
+  <div id="inspection-feedback-modal" class="fixed inset-0 z-50 overflow-y-auto hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm no-print" onclick="onFeedbackModalBackdropClick(event)">
+    <div class="bg-white rounded-2xl max-w-lg w-full border border-slate-100 shadow-2xl overflow-hidden flex flex-col transition-all duration-200" onclick="event.stopPropagation()">
+      <div class="p-6 sm:p-7 text-center" id="inspection-feedback-body">
+        <!-- Dynamic dialog content injected via JavaScript -->
+      </div>
+    </div>
+  </div>
+
   <!-- Detail Modal: Inspection details card -->
   <div id="detail-modal" class="fixed inset-0 z-50 overflow-y-auto hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm no-print">
     <div class="bg-white rounded-2xl max-w-2xl w-full border border-slate-100 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
@@ -1052,6 +1101,63 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Village Sites Explorer Modal -->
+  <div id="village-sites-modal" class="fixed inset-0 z-50 overflow-y-auto hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm no-print">
+    <div class="bg-white rounded-2xl max-w-4xl w-full border border-slate-100 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <!-- Header -->
+      <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="p-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs"><i class="fa-solid fa-building-columns"></i></span>
+            <h3 id="village-sites-modal-title" class="text-sm font-extrabold text-slate-800 tracking-wide uppercase">गाँव की शासकीय संस्थाएं (Village Sites & Facilities)</h3>
+          </div>
+          <p id="village-sites-modal-subtitle" class="text-[11px] text-slate-500 font-bold mt-1">स्कूल, आंगनवाड़ी, स्वास्थ्य केंद्र एवं पशु चिकित्सालय की सूची</p>
+        </div>
+        <button onclick="closeVillageSitesModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+
+      <!-- Search & Filters Toolbar within Modal -->
+      <div class="p-4 border-b border-slate-100 bg-white flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+        <div class="relative w-full sm:w-72">
+          <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400 text-xs">
+            <i class="fa-solid fa-magnifying-glass"></i>
+          </span>
+          <input type="text" id="village-sites-modal-search" oninput="filterVillageSitesModalCards()" placeholder="संस्था का नाम खोजें..." class="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-750">
+        </div>
+        <div class="flex items-center space-x-1.5 w-full sm:w-auto overflow-x-auto" id="village-sites-modal-category-tabs">
+          <button type="button" onclick="setVillageSitesModalCategoryFilter('all')" data-cat="all" class="village-sites-tab-btn px-3 py-1 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-sm">सभी (All)</button>
+          <button type="button" onclick="setVillageSitesModalCategoryFilter('1')" data-cat="1" class="village-sites-tab-btn px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">School (1)</button>
+          <button type="button" onclick="setVillageSitesModalCategoryFilter('3')" data-cat="3" class="village-sites-tab-btn px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">Anganwadi (3)</button>
+          <button type="button" onclick="setVillageSitesModalCategoryFilter('2')" data-cat="2" class="village-sites-tab-btn px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">Health (2)</button>
+          <button type="button" onclick="setVillageSitesModalCategoryFilter('4')" data-cat="4" class="village-sites-tab-btn px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">Veterinary (4)</button>
+        </div>
+      </div>
+
+      <!-- Sites Grid Container -->
+      <div class="flex-1 overflow-y-auto p-5 bg-slate-50/50">
+        <div id="village-sites-modal-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Populated dynamically -->
+        </div>
+        <div id="village-sites-modal-empty" class="hidden py-12 text-center text-slate-400 space-y-2">
+          <i class="fa-solid fa-folder-open text-3xl text-slate-300"></i>
+          <p class="text-xs font-bold text-slate-500">इस गाँव में कोई संस्था नहीं मिली।</p>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="p-4 bg-white border-t border-slate-100 flex items-center justify-between shrink-0">
+        <div class="text-[11px] text-slate-500 font-bold" id="village-sites-modal-count-badge">
+          कुल संस्थाएं: 0
+        </div>
+        <button onclick="closeVillageSitesModal()" class="px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl shadow-sm transition-colors">
+          बंद करें (Close)
+        </button>
+      </div>
     </div>
   </div>
 
