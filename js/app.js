@@ -2783,8 +2783,9 @@ function renderInspectionTimelineTable() {
   }
   if (emptyState) emptyState.classList.add('hidden');
 
-  // Determine max visits across filtered groups (minimum 1)
-  const maxVisits = Math.max(1, ...filteredGroups.map(g => g.visits.length));
+  // Maximum visits present + 1 extra column for the next "+ New Inspection" action
+  const highestVisits = Math.max(0, ...filteredGroups.map(g => g.visits.length));
+  const maxVisits = highestVisits + 1;
 
   // Build thead
   let theadHtml = `
@@ -2793,7 +2794,6 @@ function renderInspectionTimelineTable() {
       <th class="px-4 py-3 timeline-sticky-2 bg-slate-100/95 min-w-[130px] border-r border-slate-200">विभाग</th>
       <th class="px-4 py-3 timeline-sticky-3 bg-slate-100/95 min-w-[220px] border-r border-slate-200">शासकीय संस्था एवं स्थल (Site & Village)</th>
       <th class="px-3 py-3 text-center min-w-[100px] border-r border-slate-200">कुल विज़िट</th>
-      <th class="px-4 py-3 text-center min-w-[160px] bg-blue-50/70 border-r border-slate-200">कार्यवाही (Action)</th>
   `;
 
   for (let v = 1; v <= maxVisits; v++) {
@@ -2835,14 +2835,6 @@ function renderInspectionTimelineTable() {
           `<span class="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-100 rounded-full text-[10px] font-extrabold whitespace-nowrap">${g.visits.length} विज़िट${g.visits.length > 1 ? '्स' : ''}</span>` :
           `<span class="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold whitespace-nowrap">0 विज़िट</span>`
         }
-      </td>
-      <td class="px-4 py-3 text-center border-r border-slate-200 bg-blue-50/20">
-        <button type="button" onclick="triggerNewVisitForLocation('${escapeJs(String(g.departmentId))}', '${escapeJs(g.block)}', '${escapeJs(g.panchayat)}', '${escapeJs(g.village)}', '${escapeJs(g.facilityName || '')}', '${escapeJs(String(g.latitude || ''))}', '${escapeJs(String(g.longitude || ''))}')" 
-                class="px-3 py-1.5 bg-blue-600 hover:bg-blue-750 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center justify-center space-x-1.5 mx-auto active:scale-95 whitespace-nowrap"
-                title="इस संस्था हेतु नया निरीक्षण दर्ज करें">
-          <i class="fa-solid fa-plus text-[10px]"></i>
-          <span>New Inspection</span>
-        </button>
       </td>
     `;
 
@@ -2890,13 +2882,21 @@ function renderInspectionTimelineTable() {
             </div>
           </td>
         `;
-      } else if (g.visits.length === 0 && v === 0) {
+      } else if (v === g.visits.length) {
+        // Next slot immediately after the last visit: Place "+ New Inspection" button here
         rowHtml += `
-          <td class="px-3.5 py-4 border-r border-slate-200 align-middle text-center bg-slate-50/40 text-slate-400">
-            <span class="inline-flex items-center space-x-1 px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200/80 rounded-lg text-[11px] font-bold">
-              <i class="fa-solid fa-clock-rotate-left text-amber-500 text-[10px]"></i>
-              <span>निरीक्षण लंबित</span>
-            </span>
+          <td class="px-3.5 py-4 border-r border-slate-200 align-middle text-center bg-blue-50/20">
+            <div class="flex flex-col items-center justify-center p-3 rounded-xl border border-dashed border-blue-250 bg-white/80 hover:bg-blue-50/60 transition-all shadow-xs">
+              <button type="button" onclick="triggerNewVisitForLocation('${escapeJs(String(g.departmentId))}', '${escapeJs(g.block)}', '${escapeJs(g.panchayat)}', '${escapeJs(g.village)}', '${escapeJs(g.facilityName || '')}', '${escapeJs(String(g.latitude || ''))}', '${escapeJs(String(g.longitude || ''))}')" 
+                      class="px-3 py-1.5 bg-blue-600 hover:bg-blue-750 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center justify-center space-x-1.5 mx-auto active:scale-95 whitespace-nowrap"
+                      title="इस संस्था हेतु नया निरीक्षण (Visit ${v+1}) दर्ज करें">
+                <i class="fa-solid fa-plus text-[10px]"></i>
+                <span>New Inspection</span>
+              </button>
+              <span class="text-[10px] text-slate-500 font-bold mt-1.5">
+                ${v === 0 ? 'प्रथम निरीक्षण दर्ज करें' : `Visit ${v+1} दर्ज करें`}
+              </span>
+            </div>
           </td>
         `;
       } else {
