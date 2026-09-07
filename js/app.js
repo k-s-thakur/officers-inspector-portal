@@ -1,6 +1,7 @@
 // Collector Portal - Core Frontend Application Logic
 
-let API_URL = "https://script.google.com/macros/s/AKfycbyLzcOSx4m60yK6dT2-hAiOuHonRPvJQP-PGnz1V1XUg4I-CNTlnpwNK28TQN7d6Xy94w/exec";
+const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbyLzcOSx4m60yK6dT2-hAiOuHonRPvJQP-PGnz1V1XUg4I-CNTlnpwNK28TQN7d6Xy94w/exec";
+let API_URL = DEFAULT_API_URL;
 
 async function loadEnv() {
   try {
@@ -22,7 +23,7 @@ async function loadEnv() {
       }
     });
   } catch (err) {
-    console.warn("Unable to load .env. Using default API_URL.", err);
+    console.warn("Unable to load .env. Using DEFAULT_API_URL.", err);
   }
 }
 
@@ -548,9 +549,13 @@ async function fileToUploadPayload(file) {
 async function syncInspectionToAPI(inspection, uploadsPayload) {
   const finalApiUrl = API_URL;
   if (!finalApiUrl) {
-    console.error("API_URL is not configured.");
-    return { success: false, error: "API URL is not configured." };
+    console.error("Apps Script API URL is not configured.");
+    return { success: false, error: "Apps Script API URL is not configured." };
   }
+
+  console.log("Using API_URL:", finalApiUrl);
+  console.log("Inspection photo upload:", !!(uploadsPayload && uploadsPayload.photo));
+  console.log("Action photo upload:", !!(uploadsPayload && uploadsPayload.actionPhoto));
   
   // Clean raw Base64 data strings out of inspection object so we don't send massive base64 in duplicate fields
   const cleanInspection = { ...inspection };
@@ -582,9 +587,10 @@ async function syncInspectionToAPI(inspection, uploadsPayload) {
     }
 
     const data = await res.json();
-    if (data.error) {
-      console.error("API error sync inspection:", data.error);
-      return { success: false, error: data.error };
+    if (!data || data.error || data.success === false) {
+      const errDetail = data ? (data.error || "Backend failed to process inspection") : "Empty response from API";
+      console.error("API error sync inspection:", errDetail);
+      return { success: false, error: errDetail };
     }
 
     if (data.success) {
@@ -604,9 +610,12 @@ async function syncInspectionToAPI(inspection, uploadsPayload) {
 async function syncProjectVisitToAPI(projectId, visit, progressPercent, currentStage, status, uploadsPayload) {
   const finalApiUrl = API_URL;
   if (!finalApiUrl) {
-    console.error("API_URL is not configured.");
-    return { success: false, error: "API URL is not configured." };
+    console.error("Apps Script API URL is not configured.");
+    return { success: false, error: "Apps Script API URL is not configured." };
   }
+
+  console.log("Using API_URL:", finalApiUrl);
+  console.log("Project visit photo upload:", !!(uploadsPayload && uploadsPayload.photo));
 
   const cleanVisit = { ...visit };
   if (cleanVisit.photo && cleanVisit.photo.startsWith("data:")) {
@@ -638,9 +647,10 @@ async function syncProjectVisitToAPI(projectId, visit, progressPercent, currentS
     }
 
     const data = await res.json();
-    if (data.error) {
-      console.error("API error sync project visit:", data.error);
-      return { success: false, error: data.error };
+    if (!data || data.error || data.success === false) {
+      const errDetail = data ? (data.error || "Backend failed to process project visit") : "Empty response from API";
+      console.error("API error sync project visit:", errDetail);
+      return { success: false, error: errDetail };
     }
 
     if (data.success) {
@@ -660,7 +670,10 @@ async function syncProjectVisitToAPI(projectId, visit, progressPercent, currentS
 // Sync new project to Google Sheets API
 async function syncNewProjectToAPI(project) {
   const finalApiUrl = API_URL;
-  if (!finalApiUrl) return true;
+  if (!finalApiUrl) {
+    console.error("Apps Script API URL is not configured.");
+    return { success: false, error: "Apps Script API URL is not configured." };
+  }
   
   const payload = {
     action: "addProject",
@@ -671,14 +684,23 @@ async function syncNewProjectToAPI(project) {
     const res = await fetch(finalApiUrl, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "text/plain;charset=utf-8"
       },
       body: JSON.stringify(payload)
     });
-    return (res.ok || res.type === 'opaque');
+
+    if (!res.ok) {
+      return { success: false, error: `HTTP status ${res.status}` };
+    }
+
+    const data = await res.json();
+    if (!data || data.error || data.success === false) {
+      return { success: false, error: data ? (data.error || "Backend returned failure") : "Empty response" };
+    }
+    return { success: true, data: data };
   } catch (err) {
     console.error("Failed to sync new project to API:", err);
-    return false;
+    return { success: false, error: err.message || String(err) };
   }
 }
 
