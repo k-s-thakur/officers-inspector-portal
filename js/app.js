@@ -515,71 +515,139 @@ async function fetchDatabase() {
 }
 
 // Sync new inspection to Google Sheets API
-async function syncInspectionToAPI(inspection) {
+// Helper to convert File object to structured upload payload object ({ base64, fileName, mimeType })
+async function fileToUploadPayload(file) {
+  if (!file) return null;
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const dataUrl = e.target.result || "";
+      let base64 = dataUrl;
+      let mimeType = file.type || "image/jpeg";
+      if (dataUrl.indexOf(";base64,") !== -1) {
+        const parts = dataUrl.split(";base64,");
+        if (parts[0].startsWith("data:")) {
+          mimeType = parts[0].replace("data:", "");
+        }
+        base64 = parts[1];
+      }
+      resolve({
+        base64: base64,
+        fileName: file.name || "upload.jpg",
+        mimeType: mimeType
+      });
+    };
+    reader.onerror = function(err) {
+      reject(err);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Sync new inspection to Google Sheets API
+async function syncInspectionToAPI(inspection, uploadsPayload) {
   const finalApiUrl = API_URL;
-  if (!finalApiUrl) return true;
+  if (!finalApiUrl) return { success: true };
   
+  // Clean raw Base64 data strings out of inspection object so we don't send massive base64 in duplicate fields
+  const cleanInspection = { ...inspection };
+  if (cleanInspection.photo && cleanInspection.photo.startsWith("data:")) {
+    cleanInspection.photo = "";
+  }
+  if (cleanInspection.actionPhoto && cleanInspection.actionPhoto.startsWith("data:")) {
+    cleanInspection.actionPhoto = "";
+  }
+
   const payload = {
     action: "addInspection",
-    inspection: {
-      id: inspection.id,
-      departmentId: inspection.departmentId,
-      block: inspection.block,
-      panchayat: inspection.panchayat,
-      village: inspection.village,
-      facilityName: inspection.facilityName,
-      date: inspection.date,
-      officerName: inspection.officerName,
-      status: inspection.status,
-      remarks: inspection.remarks,
-      photo: inspection.photo,
-      actionTaken: inspection.actionTaken || "",
-      actionPhoto: inspection.actionPhoto || "",
-      responses: inspection.responses
-    }
+    inspection: cleanInspection,
+    uploads: uploadsPayload || {}
   };
 
   try {
     const res = await fetch(finalApiUrl, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "text/plain;charset=utf-8"
       },
       body: JSON.stringify(payload)
     });
-    return (res.ok || res.type === 'opaque');
+    
+    if (!res.ok) {
+      console.error("HTTP error sync inspection:", res.status);
+      return { success: false, error: `HTTP status ${res.status}` };
+    }
+
+    const data = await res.json();
+    if (data.error) {
+      console.error("API error sync inspection:", data.error);
+      return { success: false, error: data.error };
+    }
+
+    if (data.success) {
+      if (data.photoUrl) inspection.photo = data.photoUrl;
+      if (data.actionPhotoUrl) inspection.actionPhoto = data.actionPhotoUrl;
+      return { success: true, data: data };
+    }
+
+    return { success: false, error: "Unknown API response" };
   } catch (err) {
     console.error("Failed to sync inspection to API:", err);
-    return false;
+    return { success: false, error: err.message || String(err) };
   }
 }
 
 // Sync a project visit to Google Sheets API
-async function syncProjectVisitToAPI(projectId, visit, progressPercent, currentStage, status) {
+async function syncProjectVisitToAPI(projectId, visit, progressPercent, currentStage, status, uploadsPayload) {
   const finalApiUrl = API_URL;
-  if (!finalApiUrl) return true;
+  if (!finalApiUrl) return { success: true };
+
+  const cleanVisit = { ...visit };
+  if (cleanVisit.photo && cleanVisit.photo.startsWith("data:")) {
+    cleanVisit.photo = "";
+  }
   
   const payload = {
     action: "addProjectVisit",
     projectId: projectId,
-    visit: visit,
+    visit: cleanVisit,
     progressPercent: progressPercent,
     currentStage: currentStage,
-    status: status
+    status: status,
+    uploads: uploadsPayload || {}
   };
 
   try {
     const res = await fetch(finalApiUrl, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "text/plain;charset=utf-8"
       },
       body: JSON.stringify(payload)
     });
-    return (res.ok || res.type === 'opaque');
+
+    if (!res.ok) {
+      console.error("HTTP error sync project visit:", res.status);
+      return { success: false, error: `HTTP status ${res.status}` };
+    }
+
+    const data = await res.json();
+    if (data.error) {
+      console.error("API error sync project visit:", data.error);
+      return { success: false, error: data.error };
+    }
+
+    if (data.success) {
+      if (data.photoUrl) {
+        visit.photo = data.photoUrl;
+      }
+      return { success: true, data: data, photoUrl: data.photoUrl };
+    }
+
+    return { success: false, error: "Unknown API response" };
   } catch (err) {
     console.error("Failed to sync project visit to API:", err);
-    return false;
+    return { success: false, error: err.message || String(err) };
   }
 }
 
@@ -2113,7 +2181,7 @@ function showInspectionSuccessModal(item) {
   modal.classList.remove('hidden');
 }
 
-function handleFormSubmit(e) {
+async function handleFormSubmit(e) {
   e.preventDefault();
   
   const missing = [];
@@ -2211,11 +2279,32 @@ function handleFormSubmit(e) {
   const headerSelect = document.getElementById('header-officer-select');
   if (headerSelect) headerSelect.value = officerObj.id;
   
-  // Capture photo values
+  // Convert selected File objects to structured upload payloads
+  const photoFileInput = document.getElementById('form-file-photo');
+  const actionPhotoFileInput = document.getElementById('form-file-action-photo');
+
+  const photoFile = photoFileInput && photoFileInput.files && photoFileInput.files[0] ? photoFileInput.files[0] : null;
+  const actionPhotoFile = actionPhotoFileInput && actionPhotoFileInput.files && actionPhotoFileInput.files[0] ? actionPhotoFileInput.files[0] : null;
+
+  let photoUpload = photoFile ? await fileToUploadPayload(photoFile) : null;
+  let actionPhotoUpload = actionPhotoFile ? await fileToUploadPayload(actionPhotoFile) : null;
+
   const photoBox = document.getElementById('photo-preview-box');
   const actionPhotoBox = document.getElementById('action-photo-preview-box');
-  const photoImg = photoBox.querySelector('img');
-  const actionPhotoImg = actionPhotoBox.querySelector('img');
+  const photoImg = photoBox ? photoBox.querySelector('img') : null;
+  const actionPhotoImg = actionPhotoBox ? actionPhotoBox.querySelector('img') : null;
+
+  if (!photoUpload && photoImg && photoImg.src && photoImg.src.startsWith('data:')) {
+    photoUpload = { base64: photoImg.src, fileName: "inspection_photo.jpg", mimeType: "image/jpeg" };
+  }
+  if (!actionPhotoUpload && actionPhotoImg && actionPhotoImg.src && actionPhotoImg.src.startsWith('data:')) {
+    actionPhotoUpload = { base64: actionPhotoImg.src, fileName: "action_photo.jpg", mimeType: "image/jpeg" };
+  }
+
+  const uploadsPayload = {
+    photo: photoUpload,
+    actionPhoto: actionPhotoUpload
+  };
   
   // Gather dynamic checklist values
   const responses = {};
@@ -2245,13 +2334,32 @@ function handleFormSubmit(e) {
     officerPhone: officerPhone,
     status: "Submitted",
     remarks: remarks,
-    photo: photoImg ? photoImg.src : "",
+    photo: "", // Populated with Drive URL from backend API response
     actionTaken: "",
-    actionPhoto: actionPhotoImg ? actionPhotoImg.src : "",
-    responses: responses
+    actionPhoto: "", // Populated with Drive URL from backend API response
+    responses: responses,
+    synced: false
   };
+
+  showToast("info", "अपलोड जारी...", "निरीक्षण विवरण एवं फ़ोटो सर्वर (Drive) पर अपलोड हो रहे हैं...");
+
+  // Sync to remote API and wait for response
+  const syncResult = await syncInspectionToAPI(newInspection, uploadsPayload);
+
+  if (!syncResult || !syncResult.success) {
+    showToast("error", "अपलोड विफल", `निरीक्षण दर्ज नहीं हो सका: ${syncResult.error || "ड्राइव अपलोड / सर्वर त्रुटि"}`);
+    // Keep form data and draft intact on failure
+    return;
+  }
+
+  // On Success: populate returned Drive URLs
+  newInspection.synced = true;
+  if (syncResult.data) {
+    if (syncResult.data.photoUrl) newInspection.photo = syncResult.data.photoUrl;
+    if (syncResult.data.actionPhotoUrl) newInspection.actionPhoto = syncResult.data.actionPhotoUrl;
+  }
   
-  // Write to custom submissions state
+  // Write to custom submissions state and localStorage
   let customInsps = [];
   const savedInsps = localStorage.getItem('officers_inspector_portal_inspections');
   if (savedInsps) {
@@ -2259,26 +2367,13 @@ function handleFormSubmit(e) {
       customInsps = JSON.parse(savedInsps);
     } catch (e) {}
   }
-  newInspection.synced = false;
   customInsps.unshift(newInspection);
   localStorage.setItem('officers_inspector_portal_inspections', JSON.stringify(customInsps));
   
   // Merge into state list
   state.inspections.unshift(newInspection);
-  
-  // Sync to remote API
-  syncInspectionToAPI(newInspection).then(success => {
-    if (success) {
-      newInspection.synced = true;
-      const idx = customInsps.findIndex(ci => ci.id === newInspection.id);
-      if (idx !== -1) {
-        customInsps[idx].synced = true;
-        localStorage.setItem('officers_inspector_portal_inspections', JSON.stringify(customInsps));
-      }
-    }
-  });
-  
-  // Remove draft
+
+  // Remove local draft only after successful upload
   localStorage.removeItem(`officers_inspector_portal_draft_${deptId}`);
   delete state.drafts[deptId];
   
@@ -2287,7 +2382,7 @@ function handleFormSubmit(e) {
     ? REAL_DATABASE.departments.find(d => d.id === parseInt(deptId)) 
     : null;
   const deptName = deptObj ? deptObj.name : "विभाग";
-  showToast("success", "सफलतापूर्वक सहेजा गया", `${village} (${deptName}) का निरीक्षण सफलतापूर्वक सहेज लिया गया है।`);
+  showToast("success", "सफलतापूर्वक दर्ज", `${village} (${deptName}) का निरीक्षण गूगल ड्राइव एवं शीट्स में दर्ज हो गया है।`);
   
   // Clear form inputs and reload cached officer profile
   clearCurrentForm();
@@ -3050,17 +3145,212 @@ function escapeJs(str) {
     .replace(/\r/g, '');
 }
 
-// Fallback stubs for legacy references
-function renderPhysicalProjectsGrid() {
-  renderInspectionTimelineTable();
+function openProjectTimelineModal(projectId) {
+  const modal = document.getElementById('project-timeline-modal');
+  if (!modal) return;
+
+  const hiddenIdInput = document.getElementById('timeline-project-id');
+  if (hiddenIdInput) hiddenIdInput.value = projectId;
+
+  const proj = (state.physical_projects || []).find(p => String(p.id) === String(projectId));
+  
+  const titleEl = document.getElementById('timeline-modal-title');
+  const subtitleEl = document.getElementById('timeline-modal-subtitle');
+
+  if (proj) {
+    if (titleEl) titleEl.innerText = `${proj.name || 'प्रगति समय-रेखा'} (ID: ${proj.id})`;
+    if (subtitleEl) subtitleEl.innerText = `${proj.block || ''} | ${proj.village || ''} | ${proj.department || ''}`;
+  } else {
+    if (titleEl) titleEl.innerText = `परियोजना समय-रेखा (ID: ${projectId})`;
+    if (subtitleEl) subtitleEl.innerText = `प्रगति निरीक्षण इतिहास`;
+  }
+
+  // Pre-fill fields if project found
+  const stageSelect = document.getElementById('visit-select-stage');
+  const progressInput = document.getElementById('visit-input-progress');
+  const remarksInput = document.getElementById('visit-input-remarks');
+  const fileInput = document.getElementById('visit-file-photo');
+  const photoBox = document.getElementById('visit-photo-preview-box');
+
+  if (stageSelect && proj && proj.currentStage) stageSelect.value = proj.currentStage;
+  if (progressInput && proj && proj.progressPercent !== undefined) progressInput.value = proj.progressPercent;
+  if (remarksInput) remarksInput.value = "";
+  if (fileInput) fileInput.value = "";
+  if (photoBox) photoBox.innerHTML = '<i class="fa-solid fa-image text-lg"></i>';
+
+  renderProjectTimelineProgression(projectId);
+
+  modal.classList.remove('hidden');
 }
-function openNewProjectModal() {}
-function closeNewProjectModal() {}
-function closeTimelineModal() {
-  const m = document.getElementById('project-timeline-modal');
-  if (m) m.classList.add('hidden');
+
+function renderProjectTimelineProgression(projectId) {
+  const container = document.getElementById('timeline-progression-container');
+  if (!container) return;
+
+  const proj = (state.physical_projects || []).find(p => String(p.id) === String(projectId));
+  const visits = proj ? (proj.visits || []) : [];
+
+  if (visits.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-8 text-slate-400">
+        <i class="fa-solid fa-clock-rotate-left text-2xl mb-2"></i>
+        <p class="text-xs font-bold">कोई पूर्व विज़िट / निरीक्षण दर्ज नहीं है</p>
+        <p class="text-[10px]">दाहिनी ओर नया प्रगति निरीक्षण दर्ज करें।</p>
+      </div>
+    `;
+    return;
+  }
+
+  let html = `<div class="space-y-4 border-l-2 border-blue-200 pl-4 ml-2">`;
+  visits.forEach((v, idx) => {
+    let photoHtml = "";
+    if (v.photo) {
+      const capText = `Visit ${idx+1}: ${proj ? proj.name : ''} (${formatDateString(v.date)})`;
+      photoHtml = `
+        <div class="mt-2">
+          <div class="relative group cursor-pointer overflow-hidden rounded-lg border border-slate-200 w-24 h-20 bg-slate-100" 
+               onclick="openPhotoLightBox('${escapeJs(v.photo)}', '${escapeJs(capText)}')">
+            <img src="${v.photo}" alt="Progress Photo" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
+            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity">
+              <i class="fa-solid fa-magnifying-glass-plus"></i>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    html += `
+      <div class="relative group">
+        <div class="absolute -left-[25px] top-1.5 w-3 h-3 rounded-full bg-blue-600 border-2 border-white"></div>
+        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-xs space-y-1">
+          <div class="flex items-center justify-between">
+            <span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-[9px] font-extrabold">Visit ${idx+1} (${escapeHtml(v.stage || 'Progress')})</span>
+            <span class="text-[10px] font-bold text-slate-500">${formatDateString(v.date)}</span>
+          </div>
+          <div class="flex items-center justify-between text-xs font-bold text-slate-700">
+            <span>प्रगति: ${v.progress !== undefined ? v.progress : (proj ? proj.progressPercent : 0)}%</span>
+            <span class="text-[10px] text-slate-500 font-medium">${escapeHtml(v.officerName || 'Inspector')}</span>
+          </div>
+          <p class="text-xs text-slate-600 italic">${escapeHtml(v.remarks || 'कोई टिप्पणी नहीं')}</p>
+          ${photoHtml}
+        </div>
+      </div>
+    `;
+  });
+  html += `</div>`;
+
+  container.innerHTML = html;
 }
-function handleProjectVisitSubmit(e) { if (e) e.preventDefault(); }
+
+async function handleProjectVisitSubmit(e) {
+  if (e) e.preventDefault();
+
+  const projectId = document.getElementById('timeline-project-id')?.value;
+  const stage = document.getElementById('visit-select-stage')?.value;
+  const progressStr = document.getElementById('visit-input-progress')?.value;
+  const remarks = document.getElementById('visit-input-remarks')?.value.trim();
+  const fileInput = document.getElementById('visit-file-photo');
+  const photoBox = document.getElementById('visit-photo-preview-box');
+  const photoImg = photoBox ? photoBox.querySelector('img') : null;
+
+  if (!projectId) {
+    showToast("error", "त्रुटि", "परियोजना का चयन अमान्य है।");
+    return;
+  }
+  if (!stage) {
+    showToast("error", "अपूर्ण फॉर्म", "कृपया निर्माण चरण का चयन करें।");
+    return;
+  }
+  if (!progressStr || isNaN(progressStr)) {
+    showToast("error", "अपूर्ण फॉर्म", "कृपया भौतिक प्रगति (%) दर्ज करें।");
+    return;
+  }
+  if (!remarks) {
+    showToast("error", "अपूर्ण फॉर्म", "कृपया निरीक्षण टिप्पणी दर्ज करें।");
+    return;
+  }
+
+  const progressPercent = parseInt(progressStr);
+
+  const officerName = document.getElementById('form-officer-name')?.value.trim() || state.currentOfficerName || "Inspector";
+  const officerDesignation = document.getElementById('form-officer-designation')?.value.trim() || "";
+
+  let photoUpload = null;
+  if (fileInput && fileInput.files && fileInput.files[0]) {
+    photoUpload = await fileToUploadPayload(fileInput.files[0]);
+  } else if (photoImg && photoImg.src && photoImg.src.startsWith('data:')) {
+    photoUpload = {
+      base64: photoImg.src,
+      fileName: `visit_${projectId}.jpg`,
+      mimeType: "image/jpeg"
+    };
+  }
+
+  const visit = {
+    date: getTodayDateDDMMYYYY(),
+    officerName: officerName,
+    officerDesignation: officerDesignation,
+    stage: stage,
+    progress: progressPercent,
+    remarks: remarks,
+    photo: "" // Will be populated with Drive URL returned by API
+  };
+
+  const status = progressPercent >= 100 ? "Completed" : "In Progress";
+  const uploadsPayload = { photo: photoUpload };
+
+  showToast("info", "अपलोड जारी...", "परियोजना विज़िट एवं फ़ोटो गूगल ड्राइव पर अपलोड किए जा रहे हैं...");
+
+  const result = await syncProjectVisitToAPI(projectId, visit, progressPercent, stage, status, uploadsPayload);
+
+  if (!result || !result.success) {
+    showToast("error", "अपलोड विफल", `परियोजना विज़िट दर्ज नहीं हो सका: ${result.error || "सर्वर त्रुटि"}`);
+    // DO NOT reset form, keep modal open with user inputs on failure!
+    return;
+  }
+
+  // On Success: populate returned Drive URL
+  if (result.photoUrl) {
+    visit.photo = result.photoUrl;
+  }
+
+  const proj = (state.physical_projects || []).find(p => String(p.id) === String(projectId));
+  if (proj) {
+    if (!proj.visits) proj.visits = [];
+    proj.visits.push(visit);
+    proj.progressPercent = progressPercent;
+    proj.currentStage = stage;
+    proj.status = status;
+  }
+
+  // Update physical_projects state and localStorage
+  let savedProjects = [];
+  const localData = localStorage.getItem('officers_inspector_portal_projects');
+  if (localData) {
+    try { savedProjects = JSON.parse(localData); } catch(e) {}
+  }
+  const matchIdx = savedProjects.findIndex(p => String(p.id) === String(projectId));
+  if (matchIdx !== -1) {
+    savedProjects[matchIdx] = proj;
+  } else if (proj) {
+    savedProjects.push(proj);
+  }
+  localStorage.setItem('officers_inspector_portal_projects', JSON.stringify(savedProjects));
+
+  showToast("success", "सफलतापूर्वक दर्ज", "परियोजना विज़िट एवं फ़ोटो गूगल ड्राइव तथा शीट्स में दर्ज हो गए हैं।");
+
+  // Reset form inside modal
+  const visitForm = document.getElementById('project-visit-form');
+  if (visitForm) visitForm.reset();
+  if (photoBox) photoBox.innerHTML = '<i class="fa-solid fa-image text-lg"></i>';
+  if (fileInput) fileInput.value = "";
+
+  // Re-render progression history inside modal and main grid
+  renderProjectTimelineProgression(projectId);
+  if (typeof renderPhysicalProjectsGrid === 'function') {
+    renderPhysicalProjectsGrid();
+  }
+}
 function handleNewProjectSubmit(e) { if (e) e.preventDefault(); }
 
 // 10. Reports View & Export CSV Logic
