@@ -3,7 +3,7 @@
 // Copy Code.gs and PhotoUpload.gs into your Google Apps Script project (extensions > Apps Script).
 
 const CONFIG = {
-  DRIVE_FOLDER_ID: PropertiesService.getScriptProperties().getProperty("DRIVE_FOLDER_ID") || "",
+  DRIVE_FOLDER_ID: PropertiesService.getScriptProperties().getProperty("DRIVE_FOLDER_ID") || "1zNYATkOkdmReiaodO6PG2oUqyksuXcIa",
   SPREADSHEET_ID: PropertiesService.getScriptProperties().getProperty("SPREADSHEET_ID") || "",
   INSPECTIONS_SHEET_NAME: PropertiesService.getScriptProperties().getProperty("INSPECTIONS_SHEET_NAME") || "inspections"
 };

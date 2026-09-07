@@ -37,9 +37,8 @@ function uploadPhotoToDrive(upload, recordId, label) {
   if (!driveFolderId && typeof CONFIG !== "undefined" && CONFIG.DRIVE_FOLDER_ID) {
     driveFolderId = CONFIG.DRIVE_FOLDER_ID;
   }
-
   if (!driveFolderId) {
-    throw new Error("DRIVE_FOLDER_ID is not configured in Apps Script properties.");
+    driveFolderId = "1zNYATkOkdmReiaodO6PG2oUqyksuXcIa";
   }
 
   // Extract pure base64 string and mime type if data URL format is passed
