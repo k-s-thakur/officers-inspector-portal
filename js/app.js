@@ -1,6 +1,6 @@
 // Collector Portal - Core Frontend Application Logic
 
-let API_URL = "";
+let API_URL = "https://script.google.com/macros/s/AKfycbyLzcOSx4m60yK6dT2-hAiOuHonRPvJQP-PGnz1V1XUg4I-CNTlnpwNK28TQN7d6Xy94w/exec";
 
 async function loadEnv() {
   try {
@@ -17,12 +17,12 @@ async function loadEnv() {
 
       const key = trimmed.slice(0, separatorIndex).trim();
       const value = trimmed.slice(separatorIndex + 1).trim().replace(/^["']|["']$/g, "");
-      if (key === "API_URL") {
+      if (key === "API_URL" && value) {
         API_URL = value;
       }
     });
   } catch (err) {
-    console.warn("Unable to load .env. Using local static database.js.", err);
+    console.warn("Unable to load .env. Using default API_URL.", err);
   }
 }
 
@@ -547,7 +547,10 @@ async function fileToUploadPayload(file) {
 // Sync new inspection to Google Sheets API
 async function syncInspectionToAPI(inspection, uploadsPayload) {
   const finalApiUrl = API_URL;
-  if (!finalApiUrl) return { success: true };
+  if (!finalApiUrl) {
+    console.error("API_URL is not configured.");
+    return { success: false, error: "API URL is not configured." };
+  }
   
   // Clean raw Base64 data strings out of inspection object so we don't send massive base64 in duplicate fields
   const cleanInspection = { ...inspection };
@@ -600,7 +603,10 @@ async function syncInspectionToAPI(inspection, uploadsPayload) {
 // Sync a project visit to Google Sheets API
 async function syncProjectVisitToAPI(projectId, visit, progressPercent, currentStage, status, uploadsPayload) {
   const finalApiUrl = API_URL;
-  if (!finalApiUrl) return { success: true };
+  if (!finalApiUrl) {
+    console.error("API_URL is not configured.");
+    return { success: false, error: "API URL is not configured." };
+  }
 
   const cleanVisit = { ...visit };
   if (cleanVisit.photo && cleanVisit.photo.startsWith("data:")) {
