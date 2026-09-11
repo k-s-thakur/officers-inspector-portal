@@ -384,100 +384,141 @@ async function fetchDatabase(isManualRefresh = false) {
     syncBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span><span class="truncate">Sheet Syncing...</span>';
   }
   
-  console.log("Fetching dynamic database from Google Sheets...", finalApiUrl);
+  // List of active Google Sheets API URLs to fetch from (support both sheets)
+  const targetUrls = [finalApiUrl];
+  const secondaryUrl = (typeof window !== 'undefined' && window.APP_CONFIG && window.APP_CONFIG.SECONDARY_API_URL)
+    ? window.APP_CONFIG.SECONDARY_API_URL
+    : "https://script.google.com/macros/s/AKfycbwAGOt4SXtySEUcyIhhJJ0u-7pTzZg-orjvzro42g0b-exsfjVZjQ_iamhF9mkjh8fw/exec";
+  if (secondaryUrl && !targetUrls.includes(secondaryUrl)) {
+    targetUrls.push(secondaryUrl);
+  }
+
+  console.log("Fetching dynamic database from Google Sheets...", targetUrls);
   try {
-    const res = await fetch(`${finalApiUrl}?action=getData&_t=${Date.now()}`);
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-    const data = await res.json();
-    
-    if (data.error) {
-      console.error("API error:", data.error);
-      if (syncBadge) {
-        syncBadge.className = "flex items-center space-x-1.5 px-2 sm:px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] sm:text-xs font-semibold";
-        syncBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500"></span><span class="truncate">API Error</span>';
+    const fetchPromises = targetUrls.map(u => 
+      fetch(`${u}?action=getData&_t=${Date.now()}`)
+        .then(r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
+        .catch(err => {
+          console.warn(`Failed fetching sheet endpoint ${u}:`, err);
+          return null;
+        })
+    );
+
+    const responses = await Promise.all(fetchPromises);
+    const validDataList = responses.filter(d => d && !d.error);
+
+    if (validDataList.length === 0) {
+      throw new Error("No Google Sheet endpoints responded successfully");
+    }
+
+    // Merge officers, schools, facilities from sheets
+    validDataList.forEach(data => {
+      if (data.officers && data.officers.length > 0 && state.officers.length <= 16) {
+        state.officers = [...data.officers];
       }
-      return;
-    }
-    
-    if (data.officers && data.officers.length > 0) {
-      state.officers = [...data.officers];
-    }
-    if (data.schools && data.schools.length > 0) {
-      state.schools = [...data.schools];
-    }
-    if (data.anganwadis && data.anganwadis.length > 0) {
-      state.anganwadis = [...data.anganwadis];
-    }
-    if (data.health_centers && data.health_centers.length > 0) {
-      state.health_centers = [...data.health_centers];
-    }
-    if (data.vet_centers && data.vet_centers.length > 0) {
-      state.vet_centers = [...data.vet_centers];
-    }
-    
-    // Merge inspections directly from Google Sheets
-    if (data.inspections && Array.isArray(data.inspections)) {
-      const apiInspections = data.inspections.map(i => {
-        let responses = i.responses || {};
-        if (typeof responses === 'string') {
-          try { responses = JSON.parse(responses); } catch(e) { responses = {}; }
-        }
-        return {
-          id: i.id,
-          departmentId: Number(i.departmentId || i.deptId || 1),
-          block: i.block || "",
-          panchayat: i.panchayat || "",
-          village: i.village || "",
-          facilityName: i.facilityName || "",
-          date: i.date || "",
-          officerName: i.officerName || "",
-          status: i.status || "Submitted",
-          remarks: i.remarks || "",
-          photo: i.photo || "",
-          actionTaken: i.actionTaken || "",
-          actionPhoto: i.actionPhoto || "",
-          responses: responses,
-          synced: true
-        };
+      if (data.schools && data.schools.length > 0 && state.schools.length === 0) {
+        state.schools = [...data.schools];
+      }
+      if (data.anganwadis && data.anganwadis.length > 0 && state.anganwadis.length === 0) {
+        state.anganwadis = [...data.anganwadis];
+      }
+      if (data.health_centers && data.health_centers.length > 0 && state.health_centers.length === 0) {
+        state.health_centers = [...data.health_centers];
+      }
+      if (data.vet_centers && data.vet_centers.length > 0 && state.vet_centers.length === 0) {
+        state.vet_centers = [...data.vet_centers];
+      }
+    });
+
+    // Merge all inspections from both sheets, deduping by id
+    const allRawInspections = [];
+    validDataList.forEach(d => {
+      if (d.inspections && Array.isArray(d.inspections)) {
+        allRawInspections.push(...d.inspections);
+      }
+    });
+
+    const parsedInspections = [];
+    const seenIds = new Set();
+    allRawInspections.forEach(i => {
+      if (!i || !i.id || seenIds.has(String(i.id))) return;
+      seenIds.add(String(i.id));
+
+      let responses = i.responses || {};
+      if (typeof responses === 'string') {
+        try { responses = JSON.parse(responses); } catch(e) { responses = {}; }
+      }
+      parsedInspections.push({
+        id: i.id,
+        departmentId: Number(i.departmentId || i.deptId || 1),
+        block: i.block || "",
+        panchayat: i.panchayat || "",
+        village: i.village || "",
+        facilityName: i.facilityName || "",
+        date: i.date || "",
+        officerName: i.officerName || "",
+        status: i.status || "Submitted",
+        remarks: i.remarks || "",
+        photo: i.photo || "",
+        actionTaken: i.actionTaken || "",
+        actionPhoto: i.actionPhoto || "",
+        latitude: i.latitude || "",
+        longitude: i.longitude || "",
+        responses: responses,
+        synced: true
       });
-      
-      // Purely use live Google Sheets records without any local storage mixing
-      state.inspections = [...apiInspections];
-      state.inspections.sort((a, b) => new Date(b.date) - new Date(a.date));
-    }
-    
-    // Merge physical projects directly from Google Sheets
-    if (data.physical_projects && Array.isArray(data.physical_projects)) {
-      const apiProjects = data.physical_projects.map(p => {
-        let visits = p.visits || [];
-        if (typeof visits === 'string') {
-          try { visits = JSON.parse(visits); } catch(e) { visits = []; }
-        }
-        return {
-          id: p.id,
-          name: p.name,
-          type: p.type,
-          department: p.department,
-          block: p.block,
-          village: p.village,
-          latitude: Number(p.latitude || 18.88),
-          longitude: Number(p.longitude || 81.30),
-          targetDate: p.targetDate,
-          status: p.status,
-          currentStage: p.currentStage,
-          progressPercent: Number(p.progressPercent || 0),
-          visits: visits,
-          synced: true
-        };
+    });
+
+    state.inspections = parsedInspections;
+    state.inspections.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    // Merge physical projects from sheets, deduping by id
+    const allRawProjects = [];
+    validDataList.forEach(d => {
+      if (d.physical_projects && Array.isArray(d.physical_projects)) {
+        allRawProjects.push(...d.physical_projects);
+      }
+    });
+
+    const parsedProjects = [];
+    const seenProjIds = new Set();
+    allRawProjects.forEach(p => {
+      if (!p || !p.id || seenProjIds.has(String(p.id))) return;
+      seenProjIds.add(String(p.id));
+
+      let visits = p.visits || [];
+      if (typeof visits === 'string') {
+        try { visits = JSON.parse(visits); } catch(e) { visits = []; }
+      }
+      parsedProjects.push({
+        id: p.id,
+        name: p.name,
+        type: p.type,
+        department: p.department,
+        block: p.block,
+        village: p.village,
+        latitude: Number(p.latitude || 18.88),
+        longitude: Number(p.longitude || 81.30),
+        targetDate: p.targetDate,
+        status: p.status,
+        currentStage: p.currentStage,
+        progressPercent: Number(p.progressPercent || 0),
+        visits: visits,
+        synced: true
       });
-      
-      state.physical_projects = [...apiProjects];
-    }
-    
-    // Redraw lists, dashboards, charts, and maps with fresh Google Sheets data
+    });
+
+    state.physical_projects = parsedProjects;
+
+    // Redraw lists, dashboards, timeline table, charts, and maps with fresh Google Sheets data
     populateHeaderOfficerSelect();
     if (typeof updateDashboardMetrics === 'function') updateDashboardMetrics();
     if (typeof initDashboardCharts === 'function') initDashboardCharts();
+    if (typeof populateTimelineFilters === 'function') populateTimelineFilters();
+    if (typeof renderInspectionTimelineTable === 'function') renderInspectionTimelineTable();
     if (typeof renderReportsTable === 'function') renderReportsTable();
     if (typeof renderPhysicalProjectsGrid === 'function') renderPhysicalProjectsGrid();
     if (typeof renderMasterList === 'function') renderMasterList(state.activeMasterTab);
@@ -494,14 +535,14 @@ async function fetchDatabase(isManualRefresh = false) {
     
     if (syncBadge) {
       syncBadge.className = "flex items-center space-x-1.5 px-2 sm:px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[10px] sm:text-xs font-semibold";
-      syncBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span class="truncate">Live Sheet (${state.inspections.length})</span>`;
+      syncBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span class="truncate">Live Sheets (${state.inspections.length})</span>`;
     }
     
     if (isManualRefresh && typeof showToast === 'function') {
-      showToast("success", "डेटा अपडेट हुआ", `Google Sheet से ${state.inspections.length} निरीक्षण लोड किए गए।`);
+      showToast("success", "डेटा अपडेट हुआ", `Google Sheets से ${state.inspections.length} निरीक्षण लोड किए गए।`);
     }
     
-    console.log("Successfully loaded dynamic data from Google Sheets.");
+    console.log("Successfully loaded dynamic data from Google Sheets:", state.inspections.length, "inspections");
   } catch (err) {
     console.error("Failed to load database from Apps Script URL:", err);
     if (syncBadge) {
@@ -2405,6 +2446,19 @@ async function handleFormSubmit(e) {
   showInspectionSuccessModal(newInspection);
 }
 
+function populateTimelineFilters() {
+  const blockSelect = document.getElementById('timeline-block-filter');
+  if (blockSelect && blockSelect.options.length <= 1) {
+    blockSelect.innerHTML = `
+      <option value="">सभी विकासखंड (All Blocks)</option>
+      <option value="DANTEWADA">दंतेवाड़ा (Dantewada)</option>
+      <option value="GEEDAM">गीदम (Geedam)</option>
+      <option value="KATEKALYAN">कटेकल्याण (Katekalyan)</option>
+      <option value="KUAKONDA">कुआकोंडा (Kuakonda)</option>
+    `;
+  }
+}
+
 function onTimelineDeptChanged() {
   const blockVal = document.getElementById('timeline-block-filter')?.value || '';
   const gpVal = document.getElementById('timeline-panchayat-filter')?.value || '';
@@ -2741,8 +2795,11 @@ function renderInspectionTimelineTable() {
     const village = (insp.village || '').trim();
     const facName = (insp.facilityName || '').trim();
     
-    // Composite key for grouping
-    const key = `${deptId}__${blockKey}__${gp.toLowerCase()}__${village.toLowerCase()}__${facName.toLowerCase()}`;
+    // Composite key for grouping: if location data exists, group by site; otherwise group by inspection ID
+    const hasLocation = facName || village || gp;
+    const key = hasLocation
+      ? `${deptId}__${blockKey}__${gp.toLowerCase()}__${village.toLowerCase()}__${facName.toLowerCase()}`
+      : `insp__${insp.id}`;
     
     if (!groupsMap.has(key)) {
       groupsMap.set(key, {
@@ -2920,7 +2977,8 @@ function renderInspectionTimelineTable() {
     const cleanBlock = (g.block || '').replace(' (221622)', '').replace(' (221608)', '').replace(' (221615)', '').replace(' (221631)', '');
     const gpDisplay = g.panchayat ? `<span class="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold mr-1">${escapeHtml(g.panchayat)}</span>` : '';
 
-    const siteDisplayName = g.facilityName || g.village || 'शासकीय संस्था';
+    const siteDisplayName = g.facilityName || g.village || (g.visits && g.visits[0]?.remarks ? g.visits[0].remarks.slice(0, 40) : '') || ('निरीक्षण #' + (g.visits && g.visits[0] ? g.visits[0].id : ''));
+    const locationText = (g.village || cleanBlock) ? `${gpDisplay}गाँव: <strong>${escapeHtml(g.village || '-')}</strong> • ${escapeHtml(cleanBlock || '-')}` : `<span class="text-slate-400">आईडी: ${escapeHtml(g.visits && g.visits[0] ? g.visits[0].id : '')}</span>`;
 
     let rowHtml = `
       <td class="px-3.5 py-3 text-center font-bold text-slate-400 timeline-cell-sticky-1 bg-white group-hover:bg-slate-50 border-r border-slate-200">${idx + 1}</td>
@@ -2935,7 +2993,7 @@ function renderInspectionTimelineTable() {
           <span class="truncate">${escapeHtml(siteDisplayName)}</span>
         </div>
         <div class="text-[10px] text-slate-500 font-semibold mt-0.5">
-          ${gpDisplay}गाँव: <strong>${escapeHtml(g.village || '-')}</strong> • ${escapeHtml(cleanBlock)}
+          ${locationText}
         </div>
       </td>
       <td class="px-3 py-3 text-center border-r border-slate-200">
@@ -3474,8 +3532,11 @@ function renderReportsTable() {
     tr.onclick = () => showInspectionDetail(i.id);
     
     const badge = getDeptBadge(i.departmentId);
-    const cleanBlock = i.block.replace(' (221622)', '').replace(' (221608)', '').replace(' (221615)', '').replace(' (221631)', '');
-    const gpInfo = i.panchayat ? `<span class="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold mr-1">${i.panchayat}</span>` : '';
+    const cleanBlock = (i.block || '').replace(' (221622)', '').replace(' (221608)', '').replace(' (221615)', '').replace(' (221631)', '');
+    const gpInfo = i.panchayat ? `<span class="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold mr-1">${escapeHtml(i.panchayat)}</span>` : '';
+    const villageDisplay = i.village ? `${gpInfo}${escapeHtml(i.village)}` : (cleanBlock ? escapeHtml(cleanBlock) : `<span class="text-slate-400">आईडी: ${escapeHtml(i.id)}</span>`);
+    const facilityDisplay = i.facilityName || i.village || (i.remarks ? escapeHtml(i.remarks.slice(0, 35)) : '') || (`निरीक्षण #${escapeHtml(i.id)}`);
+    const officerDisplay = i.officerName ? escapeHtml(i.officerName.replace(/^Sh\s+/i, '')) : '<span class="text-slate-400 italic">उ. न.</span>';
     
     tr.innerHTML = `
       <td class="px-3.5 sm:px-6 py-3 sm:py-4 font-bold text-slate-500 whitespace-nowrap">${formatDateString(i.date)}</td>
@@ -3483,11 +3544,11 @@ function renderReportsTable() {
         <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase shrink-0 ${badge.bg} ${badge.color}">${badge.label}</span>
       </td>
       <td class="px-3.5 sm:px-6 py-3 sm:py-4">
-        <div class="font-bold text-slate-800">${gpInfo}${i.village}</div>
-        <div class="text-[10px] text-slate-400 font-semibold mt-0.5">${cleanBlock}</div>
+        <div class="font-bold text-slate-800">${villageDisplay}</div>
+        <div class="text-[10px] text-slate-400 font-semibold mt-0.5">${cleanBlock ? escapeHtml(cleanBlock) : '-'}</div>
       </td>
-      <td class="px-3.5 sm:px-6 py-3 sm:py-4 font-extrabold text-slate-800">${i.facilityName || i.village || '-'}</td>
-      <td class="px-3.5 sm:px-6 py-3 sm:py-4 font-semibold text-slate-500">${i.officerName.replace('Sh ', '')}</td>
+      <td class="px-3.5 sm:px-6 py-3 sm:py-4 font-extrabold text-slate-800">${facilityDisplay}</td>
+      <td class="px-3.5 sm:px-6 py-3 sm:py-4 font-semibold text-slate-500">${officerDisplay}</td>
       <td class="px-3.5 sm:px-6 py-3 sm:py-4 text-center">
         <span class="px-2 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded text-[9px] font-bold">SUBMITTED</span>
       </td>
