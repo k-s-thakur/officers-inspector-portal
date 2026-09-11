@@ -1,5 +1,13 @@
 // Collector Portal - Core Frontend Application Logic
 
+const DEPARTMENTS_LIST = [
+  { id: 1, name: "स्कूल / आश्रम / छात्रावास विभाग", short: "Schools & Hostels", key: "school" },
+  { id: 2, name: "स्वास्थ्य विभाग (Health Department)", short: "Health / CHC", key: "health" },
+  { id: 3, name: "महिला एवं बाल विकास विभाग (आंगनवाड़ी - WCD)", short: "Anganwadi", key: "anganwadi" },
+  { id: 4, name: "पशुधन विकास विभाग (Veterinary)", short: "Veterinary Clinic", key: "veterinary" },
+  { id: 6, name: "खाद्य एवं नागरिक आपूर्ति विभाग (Food / PDS)", short: "Food / PDS Shop", key: "food" }
+];
+
 const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbyLzcOSx4m60yK6dT2-hAiOuHonRPvJQP-PGnz1V1XUg4I-CNTlnpwNK28TQN7d6Xy94w/exec";
 
 let API_URL = (typeof window !== 'undefined' && window.APP_CONFIG && window.APP_CONFIG.API_URL)
@@ -74,16 +82,10 @@ function getNormalizedBlockKey(blockStr) {
   return "";
 }
 
-// Resilient hierarchy source getter
+// Resilient hierarchy source getter - purely from dynamic Google Sheet data
 function getHierarchySource() {
   if (state.hierarchy && Object.keys(state.hierarchy).length > 0) {
     return state.hierarchy;
-  }
-  if (typeof REAL_DATABASE !== 'undefined' && REAL_DATABASE && REAL_DATABASE.hierarchy) {
-    return REAL_DATABASE.hierarchy;
-  }
-  if (typeof window !== 'undefined' && window.REAL_DATABASE && window.REAL_DATABASE.hierarchy) {
-    return window.REAL_DATABASE.hierarchy;
   }
   return {};
 }
@@ -273,9 +275,47 @@ function getFacilitiesByLocation(options = {}) {
   return list;
 }
 
-// Immediate initial state seed from REAL_DATABASE
-if (typeof REAL_DATABASE !== 'undefined' && REAL_DATABASE && REAL_DATABASE.hierarchy) {
-  state.hierarchy = REAL_DATABASE.hierarchy;
+// Dynamic hierarchy generator from live Google Sheet data
+function buildHierarchyFromSheetData() {
+  const hierarchy = {};
+  
+  function addEntry(rawBlock, rawGp, rawVillage) {
+    if (!rawBlock) return;
+    const blockKey = getNormalizedBlockKey(rawBlock);
+    if (!blockKey) return;
+    
+    if (!hierarchy[blockKey]) {
+      const cleanBlockName = rawBlock.toString().replace(/\s*\(\d+\)/g, '').trim();
+      hierarchy[blockKey] = {
+        name: cleanBlockName,
+        panchayats: {},
+        villages: []
+      };
+    }
+    
+    const gp = (rawGp || "").toString().trim();
+    const v = (rawVillage || "").toString().trim();
+    
+    if (gp) {
+      if (!hierarchy[blockKey].panchayats[gp]) {
+        hierarchy[blockKey].panchayats[gp] = [];
+      }
+      if (v && !hierarchy[blockKey].panchayats[gp].includes(v)) {
+        hierarchy[blockKey].panchayats[gp].push(v);
+      }
+    }
+    if (v && !hierarchy[blockKey].villages.includes(v)) {
+      hierarchy[blockKey].villages.push(v);
+    }
+  }
+
+  (state.schools || []).forEach(s => addEntry(s.block, s.panchayat, s.village));
+  (state.anganwadis || []).forEach(a => addEntry(a.block, a.sector || a.panchayat, a.village));
+  (state.health_centers || []).forEach(h => addEntry(h.block, h.panchayat, h.village));
+  (state.vet_centers || []).forEach(v => addEntry(v.block, v.panchayat, v.village));
+  (state.inspections || []).forEach(i => addEntry(i.block, i.panchayat, i.village));
+
+  return hierarchy;
 }
 
 // Full Application Initialization
@@ -338,24 +378,22 @@ if (document.readyState === 'loading') {
   initApp();
 }
 
-// 1. Initialize State from Compiled database.js & LocalStorage
+// 1. Initialize State - No hardcoded data, pure Google Sheets only
 function initializeDatabase() {
-  if (typeof REAL_DATABASE !== 'undefined') {
-    state.officers = [...(REAL_DATABASE.officers || [])];
-    state.schools = [...(REAL_DATABASE.schools || [])];
-    state.anganwadis = [...(REAL_DATABASE.anganwadis || [])];
-    state.health_centers = [...(REAL_DATABASE.health_centers || [])];
-    state.vet_centers = [...(REAL_DATABASE.vet_centers || [])];
-    state.hierarchy = REAL_DATABASE.hierarchy ? JSON.parse(JSON.stringify(REAL_DATABASE.hierarchy)) : {};
-    
-    // Completely wipe and bypass localStorage for inspections & projects to ensure 100% pure Google Sheets data
-    try {
-      localStorage.removeItem('officers_inspector_portal_inspections');
-      localStorage.removeItem('officers_inspector_portal_projects');
-    } catch (e) {}
-    state.inspections = [];
-    state.physical_projects = [];
-  }
+  state.officers = [];
+  state.schools = [];
+  state.anganwadis = [];
+  state.health_centers = [];
+  state.vet_centers = [];
+  state.hierarchy = {};
+  state.inspections = [];
+  state.physical_projects = [];
+  
+  // Wipe localStorage for inspections & projects so everything comes purely from Google Sheets
+  try {
+    localStorage.removeItem('officers_inspector_portal_inspections');
+    localStorage.removeItem('officers_inspector_portal_projects');
+  } catch (e) {}
   
   // Load drafts
   for (let key in localStorage) {
@@ -368,11 +406,11 @@ function initializeDatabase() {
   }
 }
 
-// Fetch database from Google Sheets API
+// Fetch database from Google Sheets API - Single Source of Truth
 async function fetchDatabase(isManualRefresh = false) {
   const finalApiUrl = API_URL;
   if (!finalApiUrl) {
-    console.log("No API_URL configured. Using local static database.js.");
+    console.warn("No API_URL configured.");
     return;
   }
   
@@ -384,66 +422,29 @@ async function fetchDatabase(isManualRefresh = false) {
     syncBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span><span class="truncate">Sheet Syncing...</span>';
   }
   
-  // List of active Google Sheets API URLs to fetch from (support both sheets)
-  const targetUrls = [finalApiUrl];
-  const secondaryUrl = (typeof window !== 'undefined' && window.APP_CONFIG && window.APP_CONFIG.SECONDARY_API_URL)
-    ? window.APP_CONFIG.SECONDARY_API_URL
-    : "https://script.google.com/macros/s/AKfycbwAGOt4SXtySEUcyIhhJJ0u-7pTzZg-orjvzro42g0b-exsfjVZjQ_iamhF9mkjh8fw/exec";
-  if (secondaryUrl && !targetUrls.includes(secondaryUrl)) {
-    targetUrls.push(secondaryUrl);
-  }
-
-  console.log("Fetching dynamic database from Google Sheets...", targetUrls);
+  console.log("Fetching dynamic database strictly from single Google Sheet:", finalApiUrl);
   try {
-    const fetchPromises = targetUrls.map(u => 
-      fetch(`${u}?action=getData&_t=${Date.now()}`)
-        .then(r => {
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return r.json();
-        })
-        .catch(err => {
-          console.warn(`Failed fetching sheet endpoint ${u}:`, err);
-          return null;
-        })
-    );
-
-    const responses = await Promise.all(fetchPromises);
-    const validDataList = responses.filter(d => d && !d.error);
-
-    if (validDataList.length === 0) {
-      throw new Error("No Google Sheet endpoints responded successfully");
+    const res = await fetch(`${finalApiUrl}?action=getData&_t=${Date.now()}`);
+    if (!res.ok) {
+      throw new Error(`Google Sheet API returned HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    if (data.error) {
+      throw new Error(data.error);
     }
 
-    // Merge officers, schools, facilities from sheets
-    validDataList.forEach(data => {
-      if (data.officers && data.officers.length > 0 && state.officers.length <= 16) {
-        state.officers = [...data.officers];
-      }
-      if (data.schools && data.schools.length > 0 && state.schools.length === 0) {
-        state.schools = [...data.schools];
-      }
-      if (data.anganwadis && data.anganwadis.length > 0 && state.anganwadis.length === 0) {
-        state.anganwadis = [...data.anganwadis];
-      }
-      if (data.health_centers && data.health_centers.length > 0 && state.health_centers.length === 0) {
-        state.health_centers = [...data.health_centers];
-      }
-      if (data.vet_centers && data.vet_centers.length > 0 && state.vet_centers.length === 0) {
-        state.vet_centers = [...data.vet_centers];
-      }
-    });
+    // Populate all entities purely from the Google Sheet
+    state.schools = Array.isArray(data.schools) ? [...data.schools] : [];
+    state.anganwadis = Array.isArray(data.anganwadis) ? [...data.anganwadis] : [];
+    state.health_centers = Array.isArray(data.health_centers) ? [...data.health_centers] : [];
+    state.vet_centers = Array.isArray(data.vet_centers) ? [...data.vet_centers] : [];
+    state.officers = Array.isArray(data.officers) ? [...data.officers] : [];
 
-    // Merge all inspections from both sheets, deduping by id
-    const allRawInspections = [];
-    validDataList.forEach(d => {
-      if (d.inspections && Array.isArray(d.inspections)) {
-        allRawInspections.push(...d.inspections);
-      }
-    });
-
+    // Parse inspections directly from sheet
+    const rawInspections = Array.isArray(data.inspections) ? data.inspections : [];
     const parsedInspections = [];
     const seenIds = new Set();
-    allRawInspections.forEach(i => {
+    rawInspections.forEach(i => {
       if (!i || !i.id || seenIds.has(String(i.id))) return;
       seenIds.add(String(i.id));
 
@@ -460,6 +461,8 @@ async function fetchDatabase(isManualRefresh = false) {
         facilityName: i.facilityName || "",
         date: i.date || "",
         officerName: i.officerName || "",
+        officerDesignation: i.officerDesignation || "",
+        officerPhone: i.officerPhone || "",
         status: i.status || "Submitted",
         remarks: i.remarks || "",
         photo: i.photo || "",
@@ -475,17 +478,11 @@ async function fetchDatabase(isManualRefresh = false) {
     state.inspections = parsedInspections;
     state.inspections.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    // Merge physical projects from sheets, deduping by id
-    const allRawProjects = [];
-    validDataList.forEach(d => {
-      if (d.physical_projects && Array.isArray(d.physical_projects)) {
-        allRawProjects.push(...d.physical_projects);
-      }
-    });
-
+    // Parse physical projects directly from sheet
+    const rawProjects = Array.isArray(data.physical_projects) ? data.physical_projects : [];
     const parsedProjects = [];
     const seenProjIds = new Set();
-    allRawProjects.forEach(p => {
+    rawProjects.forEach(p => {
       if (!p || !p.id || seenProjIds.has(String(p.id))) return;
       seenProjIds.add(String(p.id));
 
@@ -513,6 +510,25 @@ async function fetchDatabase(isManualRefresh = false) {
 
     state.physical_projects = parsedProjects;
 
+    // Dynamically construct location hierarchy from live sheet data
+    state.hierarchy = buildHierarchyFromSheetData();
+
+    // If officers list in sheet is empty, populate from unique officers who recorded inspections
+    if (state.officers.length === 0 && state.inspections.length > 0) {
+      const officerMap = new Map();
+      state.inspections.forEach(i => {
+        if (i.officerName && i.officerName.trim() && !officerMap.has(i.officerName.trim())) {
+          officerMap.set(i.officerName.trim(), {
+            id: 'OFF_' + (officerMap.size + 1),
+            name: i.officerName.trim(),
+            designation: i.officerDesignation || 'अधिकारी',
+            phone: i.officerPhone || ''
+          });
+        }
+      });
+      state.officers = Array.from(officerMap.values());
+    }
+
     // Redraw lists, dashboards, timeline table, charts, and maps with fresh Google Sheets data
     populateHeaderOfficerSelect();
     if (typeof updateDashboardMetrics === 'function') updateDashboardMetrics();
@@ -535,14 +551,14 @@ async function fetchDatabase(isManualRefresh = false) {
     
     if (syncBadge) {
       syncBadge.className = "flex items-center space-x-1.5 px-2 sm:px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[10px] sm:text-xs font-semibold";
-      syncBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span class="truncate">Live Sheets (${state.inspections.length})</span>`;
+      syncBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span class="truncate">Live Sheet (${state.inspections.length})</span>`;
     }
     
     if (isManualRefresh && typeof showToast === 'function') {
-      showToast("success", "डेटा अपडेट हुआ", `Google Sheets से ${state.inspections.length} निरीक्षण लोड किए गए।`);
+      showToast("success", "डेटा अपडेट हुआ", `Google Sheet से ${state.inspections.length} निरीक्षण लोड किए गए।`);
     }
     
-    console.log("Successfully loaded dynamic data from Google Sheets:", state.inspections.length, "inspections");
+    console.log("Successfully loaded dynamic data purely from Google Sheet:", state.inspections.length, "inspections,", state.schools.length, "schools,", state.anganwadis.length, "anganwadis");
   } catch (err) {
     console.error("Failed to load database from Apps Script URL:", err);
     if (syncBadge) {
@@ -2184,9 +2200,7 @@ function showInspectionSuccessModal(item) {
   const body = document.getElementById('inspection-feedback-body');
   if (!modal || !body) return;
 
-  const deptObj = (typeof REAL_DATABASE !== 'undefined' && REAL_DATABASE.departments) 
-    ? REAL_DATABASE.departments.find(d => d.id === parseInt(item.departmentId)) 
-    : null;
+  const deptObj = DEPARTMENTS_LIST.find(d => d.id === parseInt(item.departmentId));
   const deptName = deptObj ? deptObj.name : "विभाग";
 
   body.innerHTML = `
@@ -2432,9 +2446,7 @@ async function handleFormSubmit(e) {
   delete state.drafts[deptId];
   
   // Success Toast & Interactive Dialog Modal
-  const deptObj = (typeof REAL_DATABASE !== 'undefined' && REAL_DATABASE.departments) 
-    ? REAL_DATABASE.departments.find(d => d.id === parseInt(deptId)) 
-    : null;
+  const deptObj = DEPARTMENTS_LIST.find(d => d.id === parseInt(deptId));
   const deptName = deptObj ? deptObj.name : "विभाग";
   showToast("success", "सफलतापूर्वक दर्ज", `${village} (${deptName}) का निरीक्षण गूगल ड्राइव एवं शीट्स में दर्ज हो गया है।`);
   
@@ -2448,14 +2460,27 @@ async function handleFormSubmit(e) {
 
 function populateTimelineFilters() {
   const blockSelect = document.getElementById('timeline-block-filter');
-  if (blockSelect && blockSelect.options.length <= 1) {
-    blockSelect.innerHTML = `
-      <option value="">सभी विकासखंड (All Blocks)</option>
-      <option value="DANTEWADA">दंतेवाड़ा (Dantewada)</option>
-      <option value="GEEDAM">गीदम (Geedam)</option>
-      <option value="KATEKALYAN">कटेकल्याण (Katekalyan)</option>
-      <option value="KUAKONDA">कुआकोंडा (Kuakonda)</option>
-    `;
+  if (blockSelect) {
+    const curVal = blockSelect.value;
+    const hierarchy = getHierarchySource();
+    const blocks = Object.keys(hierarchy);
+    if (blocks.length > 0) {
+      let optionsHtml = '<option value="">सभी विकासखंड (All Blocks)</option>';
+      blocks.sort().forEach(b => {
+        const name = hierarchy[b]?.name || b;
+        optionsHtml += `<option value="${b}">${escapeHtml(name)}</option>`;
+      });
+      blockSelect.innerHTML = optionsHtml;
+      if (curVal) blockSelect.value = curVal;
+    } else if (blockSelect.options.length <= 1) {
+      blockSelect.innerHTML = `
+        <option value="">सभी विकासखंड (All Blocks)</option>
+        <option value="DANTEWADA">दंतेवाड़ा (Dantewada)</option>
+        <option value="GEEDAM">गीदम (Geedam)</option>
+        <option value="KATEKALYAN">कटेकल्याण (Katekalyan)</option>
+        <option value="KUAKONDA">कुआकोंडा (Kuakonda)</option>
+      `;
+    }
   }
 }
 
