@@ -87,7 +87,7 @@
 
         <button id="nav-btn-physical" onclick="switchTab('physical')" class="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-xs font-semibold hover:bg-slate-800 hover:text-white text-slate-400 transition-colors">
           <i class="fa-solid fa-clipboard-check text-sm shrink-0"></i>
-          <span>निरीक्षण (Inspection)</span>
+          <span>निरीक्षण रिपोर्ट (Inspection Report)</span>
         </button>
 
         <div class="pt-4 pb-2 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-t border-slate-800 mt-4">
@@ -352,7 +352,7 @@
 
         <!-- ==================== NEW INSPECTION VIEW ==================== -->
         <section id="view-new-inspection" class="max-w-4xl mx-auto hidden">
-          <form id="inspection-dynamic-form" onsubmit="handleFormSubmit(event)" class="space-y-4 sm:space-y-6">
+          <form id="inspection-dynamic-form" novalidate onsubmit="handleFormSubmit(event)" class="space-y-4 sm:space-y-6">
             <input type="hidden" id="form-dept-id">
             
             <!-- Step 1: Inspecting Officer Information (Top text fields) -->
@@ -385,7 +385,7 @@
                     </div>
                     <div class="flex items-center space-x-2 sm:space-x-3 text-[11px] sm:text-xs text-slate-500 mt-0.5 font-medium flex-wrap">
                       <span><i class="fa-solid fa-phone text-slate-400 mr-1 text-[10px]"></i><span id="officer-preview-phone"></span></span>
-                      <span class="text-[10px] sm:text-[11px] text-emerald-600 font-semibold">• सक्रिय अधिकारी</span>
+                      <span class="text-[10px] sm:text-[11px] text-emerald-600 font-semibold">• पूर्व निरीक्षण डेटा से सक्रिय</span>
                     </div>
                   </div>
                 </div>
@@ -429,7 +429,7 @@
                     <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-xs">
                       <i class="fa-solid fa-phone"></i>
                     </span>
-                    <input type="tel" id="form-officer-phone" required maxlength="10" minlength="10" inputmode="numeric" pattern="[0-9]{10}" placeholder="10 अंकों का मोबाइल नंबर..." oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0,10)" class="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
+                    <input type="tel" id="form-officer-phone" required maxlength="10" minlength="10" inputmode="numeric" pattern="[0-9]{10}" autocomplete="tel" title="कृपया 10 अंकों का मोबाइल नंबर दर्ज करें" placeholder="10 अंकों का मोबाइल नंबर..." oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0,10)" class="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
                   </div>
                 </div>
               </div>
@@ -484,6 +484,17 @@
                   <input type="hidden" id="form-input-village" value="">
                 </div>
 
+                <div class="md:col-span-2">
+                  <label for="form-select-facility" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">शासकीय संस्था / साइट (Facility / Site Name) <span class="text-red-500">*</span></label>
+                  <div class="flex flex-col sm:flex-row gap-2">
+                    <select id="form-select-facility" onchange="onFormFacilityChanged(this.value)" class="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                      <option value="">-- पहले ग्राम / गाँव चुनें (Select Village first) --</option>
+                    </select>
+                    <input type="text" id="form-input-facility" placeholder="या संस्था का नाम यहाँ लिखें..." class="flex-1 text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
+                  </div>
+                  <p class="text-[10px] text-slate-450 mt-1">गाँव चुनते ही उस गाँव के सभी स्कूल / आंगनवाड़ी / स्वास्थ्य केंद्र लोड हो जाएंगे। सूची से चुनें या नया नाम लिखें।</p>
+                </div>
+
                 <!-- Geolocation coordinates (capture live or enter manual) -->
                 <div>
                   <label class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">भौगोलिक निर्देशांक (GPS Coordinates)</label>
@@ -506,8 +517,8 @@
                 <div>
                   <label for="form-input-date" class="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">निरीक्षण दिनांक (Date - DD/MM/YYYY) <span class="text-red-500">*</span></label>
                   <div class="relative">
-                    <input type="text" id="form-input-date" required placeholder="DD/MM/YYYY" class="w-full text-xs pl-3 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
-                    <button type="button" onclick="triggerDatePicker()" title="कैलेंडर से दिनांक चुनें" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-blue-600 transition-colors">
+                    <input type="text" id="form-input-date" required placeholder="DD/MM/YYYY" class="w-full text-xs pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
+                    <button type="button" onclick="triggerDatePicker()" title="कैलेंडर से दिनांक चुनें" class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-blue-600 transition-colors">
                       <i class="fa-solid fa-calendar-days text-sm"></i>
                     </button>
                     <input type="date" id="native-date-picker" class="sr-only absolute right-0 bottom-0 opacity-0 pointer-events-none" onchange="onNativeDatePicked(this.value)">
@@ -558,7 +569,7 @@
                       </div>
                       <div class="flex-1 min-w-0">
                         <input type="file" id="form-file-photo" accept="image/*" onchange="previewImage(this, 'photo-preview-box')" class="hidden">
-                        <button type="button" onclick="document.getElementById('form-file-photo').click()" class="bg-white hover:bg-slate-100 text-slate-700 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold shadow-sm transition-colors">
+                        <button type="button" onclick="document.getElementById('form-file-photo').click()" class="bg-white hover:bg-slate-100 text-slate-700 px-3 sm:px-4 py-1.5 sm:py-2 border border-slate-200 rounded-lg text-xs font-bold shadow-sm transition-colors">
                           <i class="fa-solid fa-upload mr-1"></i> फोटो चुनें
                         </button>
                         <p class="text-[9px] text-slate-450 mt-1">कैमरा / गैलरी से फोटो जोड़ें।</p>
@@ -575,7 +586,7 @@
                       </div>
                       <div class="flex-1 min-w-0">
                         <input type="file" id="form-file-action-photo" accept="image/*" onchange="previewImage(this, 'action-photo-preview-box')" class="hidden">
-                        <button type="button" onclick="document.getElementById('form-file-action-photo').click()" class="bg-white hover:bg-slate-100 text-slate-700 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold shadow-sm transition-colors">
+                        <button type="button" onclick="document.getElementById('form-file-action-photo').click()" class="bg-white hover:bg-slate-100 text-slate-700 px-3 sm:px-4 py-1.5 sm:py-2 border border-slate-200 rounded-lg text-xs font-bold shadow-sm transition-colors">
                           <i class="fa-solid fa-upload mr-1"></i> फोटो चुनें
                         </button>
                         <p class="text-[9px] text-slate-450 mt-1">(वैकल्पिक) सुधारात्मक कार्य फ़ोटो।</p>
@@ -625,21 +636,21 @@
           </div>
 
           <!-- Filter Matrix Card -->
-          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-5">
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
+          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-5 space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2.5 sm:gap-3">
               <div class="sm:col-span-2 lg:col-span-2">
                 <label for="timeline-search" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">खोजें (Search)</label>
                 <div class="relative">
                   <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-xs">
                     <i class="fa-solid fa-magnifying-glass"></i>
                   </span>
-                  <input type="text" id="timeline-search" oninput="renderInspectionTimelineTable()" placeholder="गाँव, पंचायत, विभाग, अधिकारी, टीप..." class="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
+                  <input type="text" id="timeline-search" oninput="renderInspectionTimelineTable()" placeholder="संस्था, गाँव, पंचायत, विभाग, अधिकारी..." class="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700">
                 </div>
               </div>
 
               <div>
                 <label for="timeline-dept-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">विभाग (Department)</label>
-                <select id="timeline-dept-filter" onchange="renderInspectionTimelineTable()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                <select id="timeline-dept-filter" onchange="onTimelineDeptChanged()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                   <option value="">सभी विभाग (All)</option>
                   <option value="1">School & Hostel</option>
                   <option value="2">Health Department</option>
@@ -667,8 +678,37 @@
                 </select>
               </div>
 
-              <div class="flex items-end">
-                <button type="button" onclick="clearTimelineFilters()" class="w-full text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 py-2 px-3 rounded-lg transition-colors flex items-center justify-center space-x-1">
+              <div>
+                <label for="timeline-village-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">गाँव (Village)</label>
+                <select id="timeline-village-filter" onchange="onTimelineVillageChanged()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">सभी गाँव (All Villages)</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="timeline-facility-filter" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">शासकीय संस्था (Site)</label>
+                <select id="timeline-facility-filter" onchange="onTimelineFacilityChanged()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">सभी संस्थाएं (All Sites)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Bottom action & quick village sites popup button -->
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
+              <div id="timeline-village-sites-bar" class="hidden flex items-center space-x-3 bg-blue-50 border border-blue-200 px-3.5 py-1.5 rounded-xl">
+                <span class="flex h-2 w-2 relative">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+                </span>
+                <span id="timeline-village-sites-info" class="text-xs font-bold text-blue-900"></span>
+                <button type="button" onclick="triggerOpenVillageSitesModal()" class="px-3 py-1 bg-blue-600 hover:bg-blue-750 text-white rounded-lg text-xs font-bold shadow-sm flex items-center space-x-1.5 transition-colors">
+                  <i class="fa-solid fa-layer-group text-[10px]"></i>
+                  <span>गाँव की सभी संस्थाएं देखें (View All Sites)</span>
+                </button>
+              </div>
+
+              <div class="flex items-center space-x-2 ml-auto">
+                <button type="button" onclick="clearTimelineFilters()" class="text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 py-2 px-3.5 rounded-lg transition-colors flex items-center space-x-1.5">
                   <i class="fa-solid fa-rotate-left"></i>
                   <span>रीसेट (Reset)</span>
                 </button>
@@ -895,6 +935,15 @@
 
   <!-- ==================== MODALS ==================== -->
 
+  <!-- Inspection Submission Feedback & Status Modal Dialog -->
+  <div id="inspection-feedback-modal" class="fixed inset-0 z-50 overflow-y-auto hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm no-print" onclick="onFeedbackModalBackdropClick(event)">
+    <div class="bg-white rounded-2xl max-w-lg w-full border border-slate-100 shadow-2xl overflow-hidden flex flex-col transition-all duration-200" onclick="event.stopPropagation()">
+      <div class="p-6 sm:p-7 text-center" id="inspection-feedback-body">
+        <!-- Dynamic dialog content injected via JavaScript -->
+      </div>
+    </div>
+  </div>
+
   <!-- Detail Modal: Inspection details card -->
   <div id="detail-modal" class="fixed inset-0 z-50 overflow-y-auto hidden flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/60 backdrop-blur-sm no-print">
     <div class="bg-white rounded-2xl max-w-2xl w-full border border-slate-100 shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh]">
@@ -1081,6 +1130,63 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Village Sites Explorer Modal -->
+  <div id="village-sites-modal" class="fixed inset-0 z-50 overflow-y-auto hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm no-print">
+    <div class="bg-white rounded-2xl max-w-4xl w-full border border-slate-100 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <!-- Header -->
+      <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="p-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs"><i class="fa-solid fa-building-columns"></i></span>
+            <h3 id="village-sites-modal-title" class="text-sm font-extrabold text-slate-800 tracking-wide uppercase">गाँव की शासकीय संस्थाएं (Village Sites & Facilities)</h3>
+          </div>
+          <p id="village-sites-modal-subtitle" class="text-[11px] text-slate-500 font-bold mt-1">स्कूल, आंगनवाड़ी, स्वास्थ्य केंद्र एवं पशु चिकित्सालय की सूची</p>
+        </div>
+        <button onclick="closeVillageSitesModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+
+      <!-- Search & Filters Toolbar within Modal -->
+      <div class="p-4 border-b border-slate-100 bg-white flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+        <div class="relative w-full sm:w-72">
+          <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400 text-xs">
+            <i class="fa-solid fa-magnifying-glass"></i>
+          </span>
+          <input type="text" id="village-sites-modal-search" oninput="filterVillageSitesModalCards()" placeholder="संस्था का नाम खोजें..." class="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-750">
+        </div>
+        <div class="flex items-center space-x-1.5 w-full sm:w-auto overflow-x-auto" id="village-sites-modal-category-tabs">
+          <button type="button" onclick="setVillageSitesModalCategoryFilter('all')" data-cat="all" class="village-sites-tab-btn px-3 py-1 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-sm">सभी (All)</button>
+          <button type="button" onclick="setVillageSitesModalCategoryFilter('1')" data-cat="1" class="village-sites-tab-btn px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">School (1)</button>
+          <button type="button" onclick="setVillageSitesModalCategoryFilter('3')" data-cat="3" class="village-sites-tab-btn px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">Anganwadi (3)</button>
+          <button type="button" onclick="setVillageSitesModalCategoryFilter('2')" data-cat="2" class="village-sites-tab-btn px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">Health (2)</button>
+          <button type="button" onclick="setVillageSitesModalCategoryFilter('4')" data-cat="4" class="village-sites-tab-btn px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">Veterinary (4)</button>
+        </div>
+      </div>
+
+      <!-- Sites Grid Container -->
+      <div class="flex-1 overflow-y-auto p-5 bg-slate-50/50">
+        <div id="village-sites-modal-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Populated dynamically -->
+        </div>
+        <div id="village-sites-modal-empty" class="hidden py-12 text-center text-slate-400 space-y-2">
+          <i class="fa-solid fa-folder-open text-3xl text-slate-300"></i>
+          <p class="text-xs font-bold text-slate-500">इस गाँव में कोई संस्था नहीं मिली।</p>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="p-4 bg-white border-t border-slate-100 flex items-center justify-between shrink-0">
+        <div class="text-[11px] text-slate-500 font-bold" id="village-sites-modal-count-badge">
+          कुल संस्थाएं: 0
+        </div>
+        <button onclick="closeVillageSitesModal()" class="px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl shadow-sm transition-colors">
+          बंद करें (Close)
+        </button>
+      </div>
     </div>
   </div>
 
