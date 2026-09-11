@@ -404,6 +404,8 @@ function initializeDatabase() {
       } catch (e) {}
     }
   }
+  
+  updateMasterSubTabCounts();
 }
 
 // Fetch database from Google Sheets API - Single Source of Truth
@@ -537,7 +539,8 @@ async function fetchDatabase(isManualRefresh = false) {
     if (typeof renderInspectionTimelineTable === 'function') renderInspectionTimelineTable();
     if (typeof renderReportsTable === 'function') renderReportsTable();
     if (typeof renderPhysicalProjectsGrid === 'function') renderPhysicalProjectsGrid();
-    if (typeof renderMasterList === 'function') renderMasterList(state.activeMasterTab);
+    if (typeof renderMasterTable === 'function') renderMasterTable();
+    updateMasterSubTabCounts();
     
     // If maps libraries are loaded and elements exist, rebuild map
     if (typeof L !== 'undefined') {
@@ -3671,6 +3674,31 @@ function exportReportsCSV() {
   showToast("success", "सफलता", "निरीक्षण लॉग का सीएसवी सफलतापूर्वक निर्यात कर लिया गया है।");
 }
 
+// Dynamic Master Subtab Counts from Google Sheet
+function updateMasterSubTabCounts() {
+  const schoolCount = Array.isArray(state.schools) ? state.schools.length : 0;
+  const anganwadiCount = Array.isArray(state.anganwadis) ? state.anganwadis.length : 0;
+  const healthCount = Array.isArray(state.health_centers) ? state.health_centers.length : 0;
+  const vetCount = Array.isArray(state.vet_centers) ? state.vet_centers.length : 0;
+  const officerCount = Array.isArray(state.officers) ? state.officers.length : 0;
+
+  const elSchool = document.getElementById('master-tab-count-school');
+  if (elSchool) elSchool.textContent = schoolCount;
+
+  const elAnganwadi = document.getElementById('master-tab-count-anganwadi');
+  if (elAnganwadi) elAnganwadi.textContent = anganwadiCount;
+
+  const elHealth = document.getElementById('master-tab-count-health_center');
+  if (elHealth) elHealth.textContent = healthCount;
+
+  const elVet = document.getElementById('master-tab-count-vet_center');
+  if (elVet) elVet.textContent = vetCount;
+
+  const elOfficer = document.getElementById('master-tab-count-officer');
+  if (elOfficer) elOfficer.textContent = officerCount;
+}
+window.updateMasterSubTabCounts = updateMasterSubTabCounts;
+
 // 11. Master Data Explorer
 function switchMasterSubTab(tab) {
   state.activeMasterTab = tab;
@@ -3681,16 +3709,18 @@ function switchMasterSubTab(tab) {
     const btn = document.getElementById(`master-subtab-btn-${t}`);
     if (btn) {
       if (t === tab) {
-        btn.className = "px-4 py-2.5 text-xs font-bold border-b-2 border-blue-600 text-blue-600 bg-transparent transition-all";
+        btn.className = "px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-bold border-b-2 border-blue-600 text-blue-600 bg-transparent transition-all shrink-0";
       } else {
-        btn.className = "px-4 py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all";
+        btn.className = "px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all shrink-0";
       }
     }
   });
   
   // Render table content
   renderMasterTable();
+  updateMasterSubTabCounts();
 }
+window.switchMasterSubTab = switchMasterSubTab;
 
 function renderMasterTable() {
   const head = document.getElementById('master-table-head');

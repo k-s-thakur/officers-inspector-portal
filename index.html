@@ -861,19 +861,19 @@
           <!-- Tabbed selector for Masters -->
           <div class="flex items-center space-x-1 sm:space-x-2 border-b border-slate-200 pb-px overflow-x-auto no-scrollbar whitespace-nowrap flex-nowrap scroll-smooth">
             <button onclick="switchMasterSubTab('school')" id="master-subtab-btn-school" class="px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-bold border-b-2 border-blue-600 text-blue-600 bg-transparent transition-all shrink-0">
-              Schools (906)
+              Schools (<span id="master-tab-count-school">0</span>)
             </button>
             <button onclick="switchMasterSubTab('anganwadi')" id="master-subtab-btn-anganwadi" class="px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all shrink-0">
-              Anganwadi Centers (1057)
+              Anganwadi Centers (<span id="master-tab-count-anganwadi">0</span>)
             </button>
             <button onclick="switchMasterSubTab('health_center')" id="master-subtab-btn-health_center" class="px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all shrink-0">
-              Health Centers (93)
+              Health Centers (<span id="master-tab-count-health_center">0</span>)
             </button>
             <button onclick="switchMasterSubTab('vet_center')" id="master-subtab-btn-vet_center" class="px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all shrink-0">
-              Veterinary Clinics (24)
+              Veterinary Clinics (<span id="master-tab-count-vet_center">0</span>)
             </button>
             <button onclick="switchMasterSubTab('officer')" id="master-subtab-btn-officer" class="px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all shrink-0">
-              Officers (15)
+              Officers (<span id="master-tab-count-officer">0</span>)
             </button>
           </div>
 
@@ -1210,6 +1210,6 @@
   <!-- Application Configuration (Google Sheets Web App API URL) -->
   <script src="config.js?v=2.3"></script>
   <!-- Main application scripting -->
-  <script src="js/app.js?v=2.3"></script>
+  <script src="js/app.js?v=2.4"></script>
 </body>
 </html>
