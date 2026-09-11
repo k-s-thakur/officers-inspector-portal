@@ -348,36 +348,13 @@ function initializeDatabase() {
     state.vet_centers = [...(REAL_DATABASE.vet_centers || [])];
     state.hierarchy = REAL_DATABASE.hierarchy ? JSON.parse(JSON.stringify(REAL_DATABASE.hierarchy)) : {};
     
-    // Load only pending offline unsynced inspections from localStorage
-    let pendingInsps = [];
-    const savedInsps = localStorage.getItem('officers_inspector_portal_inspections');
-    if (savedInsps) {
-      try {
-        const parsed = JSON.parse(savedInsps);
-        if (Array.isArray(parsed)) {
-          // Keep only entries that are offline and not yet confirmed synced to Google Sheets
-          pendingInsps = parsed.filter(ci => ci && ci.synced === false);
-        }
-      } catch (e) {
-        console.error("Error reading custom inspections", e);
-      }
-    }
-    state.inspections = [...pendingInsps];
-
-    // Load only pending offline unsynced projects from localStorage
-    let pendingProjs = [];
-    const savedProjs = localStorage.getItem('officers_inspector_portal_projects');
-    if (savedProjs) {
-      try {
-        const parsed = JSON.parse(savedProjs);
-        if (Array.isArray(parsed)) {
-          pendingProjs = parsed.filter(cp => cp && cp.synced === false);
-        }
-      } catch (e) {
-        console.error("Error reading custom projects", e);
-      }
-    }
-    state.physical_projects = [...pendingProjs];
+    // Completely wipe and bypass localStorage for inspections & projects to ensure 100% pure Google Sheets data
+    try {
+      localStorage.removeItem('officers_inspector_portal_inspections');
+      localStorage.removeItem('officers_inspector_portal_projects');
+    } catch (e) {}
+    state.inspections = [];
+    state.physical_projects = [];
   }
   
   // Load drafts
@@ -464,9 +441,8 @@ async function fetchDatabase(isManualRefresh = false) {
         };
       });
       
-      // Keep only offline unsynced entries, and strictly use live Google Sheets records
-      const unsyncedOnly = state.inspections.filter(li => li && li.synced === false && !apiInspections.some(ai => ai.id === li.id));
-      state.inspections = [...unsyncedOnly, ...apiInspections];
+      // Purely use live Google Sheets records without any local storage mixing
+      state.inspections = [...apiInspections];
       state.inspections.sort((a, b) => new Date(b.date) - new Date(a.date));
     }
     
@@ -495,8 +471,7 @@ async function fetchDatabase(isManualRefresh = false) {
         };
       });
       
-      const unsyncedProjects = state.physical_projects.filter(lp => lp && lp.synced === false && !apiProjects.some(ap => ap.id === lp.id));
-      state.physical_projects = [...unsyncedProjects, ...apiProjects];
+      state.physical_projects = [...apiProjects];
     }
     
     // Redraw lists, dashboards, charts, and maps with fresh Google Sheets data
@@ -2408,18 +2383,7 @@ async function handleFormSubmit(e) {
     if (syncResult.data.actionPhotoUrl) newInspection.actionPhoto = syncResult.data.actionPhotoUrl;
   }
   
-  // Write to custom submissions state and localStorage
-  let customInsps = [];
-  const savedInsps = localStorage.getItem('officers_inspector_portal_inspections');
-  if (savedInsps) {
-    try {
-      customInsps = JSON.parse(savedInsps);
-    } catch (e) {}
-  }
-  customInsps.unshift(newInspection);
-  localStorage.setItem('officers_inspector_portal_inspections', JSON.stringify(customInsps));
-  
-  // Merge into state list
+  // Add directly to in-memory state (no localStorage saving)
   state.inspections.unshift(newInspection);
 
   // Remove local draft only after successful upload
@@ -3372,19 +3336,7 @@ async function handleProjectVisitSubmit(e) {
     proj.status = status;
   }
 
-  // Update physical_projects state and localStorage
-  let savedProjects = [];
-  const localData = localStorage.getItem('officers_inspector_portal_projects');
-  if (localData) {
-    try { savedProjects = JSON.parse(localData); } catch(e) {}
-  }
-  const matchIdx = savedProjects.findIndex(p => String(p.id) === String(projectId));
-  if (matchIdx !== -1) {
-    savedProjects[matchIdx] = proj;
-  } else if (proj) {
-    savedProjects.push(proj);
-  }
-  localStorage.setItem('officers_inspector_portal_projects', JSON.stringify(savedProjects));
+  // Updated state directly (no localStorage saving)
 
   showToast("success", "सफलतापूर्वक दर्ज", "परियोजना विज़िट एवं फ़ोटो गूगल ड्राइव तथा शीट्स में दर्ज हो गए हैं।");
 
