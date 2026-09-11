@@ -123,7 +123,17 @@
           </button>
           <h2 id="current-view-title" class="text-xs sm:text-sm font-extrabold text-slate-900 uppercase tracking-wide truncate">अधिकारी डैशबोर्ड (Dashboard)</h2>
         </div>
-
+        
+        <!-- Live Google Sheet Sync Status & Refresh Button -->
+        <div class="flex items-center space-x-2 sm:space-x-3 shrink-0">
+          <div id="sheet-sync-status" class="flex items-center space-x-1.5 px-2 sm:px-3 py-1 bg-slate-100 text-slate-600 border border-slate-200 rounded-full text-[10px] sm:text-xs font-semibold">
+            <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+            <span class="truncate">Connecting Sheet...</span>
+          </div>
+          <button onclick="fetchDatabase(true)" title="Google Sheet से नया डेटा लोड करें (Refresh Data)" class="p-1.5 sm:p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg border border-slate-200 transition-all flex items-center justify-center">
+            <i class="fa-solid fa-rotate text-xs sm:text-sm" id="btn-refresh-icon"></i>
+          </button>
+        </div>
       </header>
 
       <!-- Scrollable Content -->
@@ -1091,9 +1101,11 @@
   <!-- Leaflet.js CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
   
+  <!-- Application Configuration (Google Sheets Web App API URL) -->
+  <script src="config.js?v=2.2"></script>
   <!-- Compiled database source -->
-  <script src="js/database.js?v=2.1"></script>
+  <script src="js/database.js?v=2.2"></script>
   <!-- Main application scripting -->
-  <script src="js/app.js?v=2.1"></script>
+  <script src="js/app.js?v=2.2"></script>
 </body>
 </html>

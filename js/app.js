@@ -1,8 +1,16 @@
 // Collector Portal - Core Frontend Application Logic
 
-let API_URL = "";
+const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbwAGOt4SXtySEUcyIhhJJ0u-7pTzZg-orjvzro42g0b-exsfjVZjQ_iamhF9mkjh8fw/exec";
+
+let API_URL = (typeof window !== 'undefined' && window.APP_CONFIG && window.APP_CONFIG.API_URL)
+  ? window.APP_CONFIG.API_URL
+  : DEFAULT_API_URL;
 
 async function loadEnv() {
+  if (typeof window !== 'undefined' && window.APP_CONFIG && window.APP_CONFIG.API_URL) {
+    API_URL = window.APP_CONFIG.API_URL;
+    return;
+  }
   try {
     const res = await fetch(".env", { cache: "no-store" });
     if (!res.ok) return;
@@ -17,12 +25,12 @@ async function loadEnv() {
 
       const key = trimmed.slice(0, separatorIndex).trim();
       const value = trimmed.slice(separatorIndex + 1).trim().replace(/^["']|["']$/g, "");
-      if (key === "API_URL") {
+      if (key === "API_URL" && value) {
         API_URL = value;
       }
     });
   } catch (err) {
-    console.warn("Unable to load .env. Using local static database.js.", err);
+    console.log("Using API_URL:", API_URL);
   }
 }
 
@@ -190,57 +198,43 @@ if (document.readyState === 'loading') {
 // 1. Initialize State from Compiled database.js & LocalStorage
 function initializeDatabase() {
   if (typeof REAL_DATABASE !== 'undefined') {
-    state.officers = [...REAL_DATABASE.officers];
-    state.schools = [...REAL_DATABASE.schools];
-    state.anganwadis = [...REAL_DATABASE.anganwadis];
-    state.health_centers = [...REAL_DATABASE.health_centers];
-    state.vet_centers = [...REAL_DATABASE.vet_centers];
+    state.officers = [...(REAL_DATABASE.officers || [])];
+    state.schools = [...(REAL_DATABASE.schools || [])];
+    state.anganwadis = [...(REAL_DATABASE.anganwadis || [])];
+    state.health_centers = [...(REAL_DATABASE.health_centers || [])];
+    state.vet_centers = [...(REAL_DATABASE.vet_centers || [])];
     state.hierarchy = REAL_DATABASE.hierarchy ? JSON.parse(JSON.stringify(REAL_DATABASE.hierarchy)) : {};
     
-    // Load custom inspections from localStorage & merge
-    let customInsps = [];
+    // Load only pending offline unsynced inspections from localStorage
+    let pendingInsps = [];
     const savedInsps = localStorage.getItem('officers_inspector_portal_inspections');
     if (savedInsps) {
       try {
-        customInsps = JSON.parse(savedInsps);
+        const parsed = JSON.parse(savedInsps);
+        if (Array.isArray(parsed)) {
+          // Keep only entries that are offline and not yet confirmed synced to Google Sheets
+          pendingInsps = parsed.filter(ci => ci && ci.synced === false);
+        }
       } catch (e) {
         console.error("Error reading custom inspections", e);
       }
     }
-    state.inspections = [...customInsps, ...REAL_DATABASE.inspections];
+    state.inspections = [...pendingInsps];
 
-    // Load physical projects from localStorage & merge
-    let customProjs = [];
+    // Load only pending offline unsynced projects from localStorage
+    let pendingProjs = [];
     const savedProjs = localStorage.getItem('officers_inspector_portal_projects');
     if (savedProjs) {
       try {
-        customProjs = JSON.parse(savedProjs);
+        const parsed = JSON.parse(savedProjs);
+        if (Array.isArray(parsed)) {
+          pendingProjs = parsed.filter(cp => cp && cp.synced === false);
+        }
       } catch (e) {
         console.error("Error reading custom projects", e);
       }
     }
-    
-    // Merge real database projects with custom ones, prioritizing custom/updated ones
-    let baseProjects = [...REAL_DATABASE.physical_projects];
-    let mergedProjects = [];
-    
-    baseProjects.forEach(bp => {
-      const updated = customProjs.find(cp => cp.id === bp.id);
-      if (updated) {
-        mergedProjects.push(updated);
-      } else {
-        mergedProjects.push(bp);
-      }
-    });
-    
-    // Append any entirely new projects added by user
-    customProjs.forEach(cp => {
-      if (!baseProjects.some(bp => bp.id === cp.id)) {
-        mergedProjects.push(cp);
-      }
-    });
-    
-    state.physical_projects = mergedProjects;
+    state.physical_projects = [...pendingProjs];
   }
   
   // Load drafts
@@ -255,21 +249,33 @@ function initializeDatabase() {
 }
 
 // Fetch database from Google Sheets API
-async function fetchDatabase() {
+async function fetchDatabase(isManualRefresh = false) {
   const finalApiUrl = API_URL;
   if (!finalApiUrl) {
     console.log("No API_URL configured. Using local static database.js.");
     return;
   }
   
-  console.log("Fetching dynamic database from Google Sheets...");
+  const syncBadge = document.getElementById('sheet-sync-status');
+  const refreshIcon = document.getElementById('btn-refresh-icon');
+  if (refreshIcon) refreshIcon.classList.add('fa-spin');
+  if (syncBadge) {
+    syncBadge.className = "flex items-center space-x-1.5 px-2 sm:px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-[10px] sm:text-xs font-semibold";
+    syncBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span><span class="truncate">Sheet Syncing...</span>';
+  }
+  
+  console.log("Fetching dynamic database from Google Sheets...", finalApiUrl);
   try {
-    const res = await fetch(`${finalApiUrl}?action=getData`);
+    const res = await fetch(`${finalApiUrl}?action=getData&_t=${Date.now()}`);
     if (!res.ok) throw new Error(`HTTP error ${res.status}`);
     const data = await res.json();
     
     if (data.error) {
       console.error("API error:", data.error);
+      if (syncBadge) {
+        syncBadge.className = "flex items-center space-x-1.5 px-2 sm:px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] sm:text-xs font-semibold";
+        syncBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500"></span><span class="truncate">API Error</span>';
+      }
       return;
     }
     
@@ -289,8 +295,8 @@ async function fetchDatabase() {
       state.vet_centers = [...data.vet_centers];
     }
     
-    // Merge inspections
-    if (data.inspections) {
+    // Merge inspections directly from Google Sheets
+    if (data.inspections && Array.isArray(data.inspections)) {
       const apiInspections = data.inspections.map(i => {
         let responses = i.responses || {};
         if (typeof responses === 'string') {
@@ -315,13 +321,14 @@ async function fetchDatabase() {
         };
       });
       
-      const localOnly = state.inspections.filter(li => !apiInspections.some(ai => ai.id === li.id));
-      state.inspections = [...localOnly, ...apiInspections];
+      // Keep only offline unsynced entries, and strictly use live Google Sheets records
+      const unsyncedOnly = state.inspections.filter(li => li && li.synced === false && !apiInspections.some(ai => ai.id === li.id));
+      state.inspections = [...unsyncedOnly, ...apiInspections];
       state.inspections.sort((a, b) => new Date(b.date) - new Date(a.date));
     }
     
-    // Merge physical projects
-    if (data.physical_projects) {
+    // Merge physical projects directly from Google Sheets
+    if (data.physical_projects && Array.isArray(data.physical_projects)) {
       const apiProjects = data.physical_projects.map(p => {
         let visits = p.visits || [];
         if (typeof visits === 'string') {
@@ -345,15 +352,17 @@ async function fetchDatabase() {
         };
       });
       
-      const localOnly = state.physical_projects.filter(lp => !apiProjects.some(ap => ap.id === lp.id));
-      state.physical_projects = [...localOnly, ...apiProjects];
+      const unsyncedProjects = state.physical_projects.filter(lp => lp && lp.synced === false && !apiProjects.some(ap => ap.id === lp.id));
+      state.physical_projects = [...unsyncedProjects, ...apiProjects];
     }
     
-    // Redraw lists, dashboards, and maps if they are active
+    // Redraw lists, dashboards, charts, and maps with fresh Google Sheets data
     populateHeaderOfficerSelect();
     if (typeof updateDashboardMetrics === 'function') updateDashboardMetrics();
+    if (typeof initDashboardCharts === 'function') initDashboardCharts();
     if (typeof renderReportsTable === 'function') renderReportsTable();
     if (typeof renderPhysicalProjectsGrid === 'function') renderPhysicalProjectsGrid();
+    if (typeof renderMasterList === 'function') renderMasterList(state.activeMasterTab);
     
     // If maps libraries are loaded and elements exist, rebuild map
     if (typeof L !== 'undefined') {
@@ -365,9 +374,24 @@ async function fetchDatabase() {
       }
     }
     
+    if (syncBadge) {
+      syncBadge.className = "flex items-center space-x-1.5 px-2 sm:px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[10px] sm:text-xs font-semibold";
+      syncBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span class="truncate">Live Sheet (${state.inspections.length})</span>`;
+    }
+    
+    if (isManualRefresh && typeof showToast === 'function') {
+      showToast("success", "डेटा अपडेट हुआ", `Google Sheet से ${state.inspections.length} निरीक्षण लोड किए गए।`);
+    }
+    
     console.log("Successfully loaded dynamic data from Google Sheets.");
   } catch (err) {
     console.error("Failed to load database from Apps Script URL:", err);
+    if (syncBadge) {
+      syncBadge.className = "flex items-center space-x-1.5 px-2 sm:px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-full text-[10px] sm:text-xs font-semibold";
+      syncBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-500"></span><span class="truncate">Offline / Sync Error</span>';
+    }
+  } finally {
+    if (refreshIcon) refreshIcon.classList.remove('fa-spin');
   }
 }
 
@@ -400,11 +424,11 @@ async function syncInspectionToAPI(inspection) {
     const res = await fetch(finalApiUrl, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "text/plain;charset=utf-8"
       },
       body: JSON.stringify(payload)
     });
-    return (res.ok || res.type === 'opaque');
+    return true;
   } catch (err) {
     console.error("Failed to sync inspection to API:", err);
     return false;
@@ -429,11 +453,11 @@ async function syncProjectVisitToAPI(projectId, visit, progressPercent, currentS
     const res = await fetch(finalApiUrl, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "text/plain;charset=utf-8"
       },
       body: JSON.stringify(payload)
     });
-    return (res.ok || res.type === 'opaque');
+    return true;
   } catch (err) {
     console.error("Failed to sync project visit to API:", err);
     return false;
@@ -454,11 +478,11 @@ async function syncNewProjectToAPI(project) {
     const res = await fetch(finalApiUrl, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "text/plain;charset=utf-8"
       },
       body: JSON.stringify(payload)
     });
-    return (res.ok || res.type === 'opaque');
+    return true;
   } catch (err) {
     console.error("Failed to sync new project to API:", err);
     return false;
