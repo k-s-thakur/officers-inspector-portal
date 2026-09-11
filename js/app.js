@@ -14,6 +14,71 @@ let API_URL = (typeof window !== 'undefined' && window.APP_CONFIG && window.APP_
   ? window.APP_CONFIG.API_URL
   : DEFAULT_API_URL;
 
+// Extract Google Drive File ID from various URL formats
+function getGoogleDriveFileId(url) {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  const matchFileD = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (matchFileD && matchFileD[1]) return matchFileD[1];
+  
+  const matchId = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (matchId && matchId[1]) return matchId[1];
+  
+  const matchD = trimmed.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (matchD && matchD[1]) return matchD[1];
+  
+  return '';
+}
+
+// Convert any Google Drive URL into an embeddable image URL via Google's high-speed CDN
+function formatDriveImageUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return trimmed;
+  
+  const fileId = getGoogleDriveFileId(trimmed);
+  if (fileId) {
+    return `https://lh3.googleusercontent.com/d/${fileId}`;
+  }
+  return trimmed;
+}
+
+// Multi-tiered image fallback handler for Drive photos
+window.handleImageError = function(imgElement, originalUrl) {
+  if (!imgElement) return;
+  const fileId = getGoogleDriveFileId(originalUrl || imgElement.src);
+  
+  // 1st fallback: Drive thumbnail service
+  if (fileId && !imgElement.dataset.fallbackTried1) {
+    imgElement.dataset.fallbackTried1 = '1';
+    imgElement.src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+    return;
+  }
+  
+  // 2nd fallback: uc?export=view
+  if (fileId && !imgElement.dataset.fallbackTried2) {
+    imgElement.dataset.fallbackTried2 = '1';
+    imgElement.src = `https://drive.google.com/uc?export=view&id=${fileId}`;
+    return;
+  }
+  
+  // Final fallback: Show clean open in drive button
+  imgElement.onerror = null;
+  imgElement.style.display = 'none';
+  const parent = imgElement.parentElement;
+  if (parent && !parent.querySelector('.photo-fallback-link')) {
+    const fallbackLink = document.createElement('a');
+    fallbackLink.className = 'photo-fallback-link flex flex-col items-center justify-center p-2 text-center text-blue-600 hover:text-blue-800 text-[10px] font-bold w-full h-full bg-slate-100 rounded border border-dashed border-blue-350';
+    fallbackLink.href = originalUrl || (fileId ? `https://drive.google.com/file/d/${fileId}/view` : '#');
+    fallbackLink.target = '_blank';
+    fallbackLink.rel = 'noopener noreferrer';
+    fallbackLink.onclick = function(e) { e.stopPropagation(); };
+    fallbackLink.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square text-xs mb-1"></i><span>फोटो खोलें</span>';
+    parent.appendChild(fallbackLink);
+  }
+};
+
 async function loadEnv() {
   if (typeof window !== 'undefined' && window.APP_CONFIG && window.APP_CONFIG.API_URL) {
     API_URL = window.APP_CONFIG.API_URL;
@@ -454,6 +519,8 @@ async function fetchDatabase(isManualRefresh = false) {
       if (typeof responses === 'string') {
         try { responses = JSON.parse(responses); } catch(e) { responses = {}; }
       }
+      const rawPhoto = i.photo || i.photoUrl || i["Photo URL"] || i["photo_url"] || "";
+      const rawActionPhoto = i.actionPhoto || i.actionPhotoUrl || i["Action Photo URL"] || i["action_photo_url"] || "";
       parsedInspections.push({
         id: i.id,
         departmentId: Number(i.departmentId || i.deptId || 1),
@@ -467,9 +534,11 @@ async function fetchDatabase(isManualRefresh = false) {
         officerPhone: i.officerPhone || "",
         status: i.status || "Submitted",
         remarks: i.remarks || "",
-        photo: i.photo || "",
+        photo: formatDriveImageUrl(rawPhoto),
+        rawPhotoUrl: rawPhoto,
         actionTaken: i.actionTaken || "",
-        actionPhoto: i.actionPhoto || "",
+        actionPhoto: formatDriveImageUrl(rawActionPhoto),
+        rawActionPhotoUrl: rawActionPhoto,
         latitude: i.latitude || "",
         longitude: i.longitude || "",
         responses: responses,
@@ -478,7 +547,10 @@ async function fetchDatabase(isManualRefresh = false) {
     });
 
     state.inspections = parsedInspections;
-    state.inspections.sort((a, b) => new Date(b.date) - new Date(a.date));
+    state.inspections.sort((a, b) => {
+      const diff = parseDateValue(b.date) - parseDateValue(a.date);
+      return diff !== 0 ? diff : (Number(b.id) || 0) - (Number(a.id) || 0);
+    });
 
     // Parse physical projects directly from sheet
     const rawProjects = Array.isArray(data.physical_projects) ? data.physical_projects : [];
@@ -491,6 +563,14 @@ async function fetchDatabase(isManualRefresh = false) {
       let visits = p.visits || [];
       if (typeof visits === 'string') {
         try { visits = JSON.parse(visits); } catch(e) { visits = []; }
+      }
+      if (Array.isArray(visits)) {
+        visits.forEach(v => {
+          if (v && v.photo) {
+            v.rawPhotoUrl = v.photo;
+            v.photo = formatDriveImageUrl(v.photo);
+          }
+        });
       }
       parsedProjects.push({
         id: p.id,
@@ -711,7 +791,8 @@ async function syncProjectVisitToAPI(projectId, visit, progressPercent, currentS
 
     if (data.success) {
       if (data.photoUrl) {
-        visit.photo = data.photoUrl;
+        visit.rawPhotoUrl = data.photoUrl;
+        visit.photo = formatDriveImageUrl(data.photoUrl);
       }
       return { success: true, data: data, photoUrl: data.photoUrl };
     }
@@ -1148,7 +1229,10 @@ function initDashboardCharts() {
     recentList.innerHTML = "";
     
     // Sort inspections by date desc
-    const sortedInsps = [...state.inspections].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+    const sortedInsps = [...state.inspections].sort((a, b) => {
+      const diff = parseDateValue(b.date) - parseDateValue(a.date);
+      return diff !== 0 ? diff : (Number(b.id) || 0) - (Number(a.id) || 0);
+    }).slice(0, 5);
     
     if (sortedInsps.length === 0) {
       recentList.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center font-medium">कोई डेटा उपलब्ध नहीं है</p>`;
@@ -2437,8 +2521,14 @@ async function handleFormSubmit(e) {
   // On Success: populate returned Drive URLs
   newInspection.synced = true;
   if (syncResult.data) {
-    if (syncResult.data.photoUrl) newInspection.photo = syncResult.data.photoUrl;
-    if (syncResult.data.actionPhotoUrl) newInspection.actionPhoto = syncResult.data.actionPhotoUrl;
+    if (syncResult.data.photoUrl) {
+      newInspection.rawPhotoUrl = syncResult.data.photoUrl;
+      newInspection.photo = formatDriveImageUrl(syncResult.data.photoUrl);
+    }
+    if (syncResult.data.actionPhotoUrl) {
+      newInspection.rawActionPhotoUrl = syncResult.data.actionPhotoUrl;
+      newInspection.actionPhoto = formatDriveImageUrl(syncResult.data.actionPhotoUrl);
+    }
   }
   
   // Add directly to in-memory state (no localStorage saving)
@@ -2902,10 +2992,10 @@ function renderInspectionTimelineTable() {
   // Sort visits within each group chronologically (oldest to newest: Visit 1, Visit 2, ...)
   const allGroups = Array.from(groupsMap.values()).map(g => {
     g.visits.sort((a, b) => {
-      const da = new Date(a.date);
-      const db = new Date(b.date);
-      if (isNaN(da.getTime()) || isNaN(db.getTime())) return 0;
-      return da - db;
+      const da = parseDateValue(a.date);
+      const db = parseDateValue(b.date);
+      if (da !== db) return da - db;
+      return (Number(a.id) || 0) - (Number(b.id) || 0);
     });
     return g;
   });
@@ -2960,6 +3050,23 @@ function renderInspectionTimelineTable() {
     }
 
     return true;
+  });
+
+  // Sort rows so that the site with the latest visit / update is at the very top (sabse upar)
+  filteredGroups.sort((a, b) => {
+    const timeA = a.visits.length > 0 ? Math.max(...a.visits.map(v => parseDateValue(v.date))) : 0;
+    const timeB = b.visits.length > 0 ? Math.max(...b.visits.map(v => parseDateValue(v.date))) : 0;
+    if (timeB !== timeA) return timeB - timeA;
+
+    // Tie-breaker: most recent inspection ID
+    const maxIdA = a.visits.length > 0 ? Math.max(...a.visits.map(v => Number(v.id) || 0)) : 0;
+    const maxIdB = b.visits.length > 0 ? Math.max(...b.visits.map(v => Number(v.id) || 0)) : 0;
+    if (maxIdB !== maxIdA) return maxIdB - maxIdA;
+
+    // Sites with visits come before sites without visits
+    if (b.visits.length !== a.visits.length) return b.visits.length - a.visits.length;
+
+    return (a.facilityName || '').localeCompare(b.facilityName || '');
   });
 
   // Update badge count
@@ -3038,12 +3145,17 @@ function renderInspectionTimelineTable() {
         let photoMarkup = "";
         if (item.photo) {
           const capText = `Visit ${v+1}: ${siteDisplayName} (${formatDateString(item.date)})`;
+          const displayPhoto = formatDriveImageUrl(item.photo);
+          const rawPhoto = item.rawPhotoUrl || item.photo;
           photoMarkup = `
             <div class="mt-2 pt-2 border-t border-slate-200/60 flex flex-col items-center">
               <span class="text-[9px] font-extrabold text-slate-450 uppercase tracking-wider block mb-1">Visit Photo</span>
-              <div class="relative group cursor-pointer overflow-hidden rounded-lg border border-slate-200 shadow-sm w-20 h-16 bg-slate-100 shrink-0" 
-                   onclick="event.stopPropagation(); openPhotoLightBox('${escapeJs(item.photo)}', '${escapeJs(capText)}')">
-                <img src="${item.photo}" alt="Visit Photo" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200">
+              <div class="relative group cursor-pointer overflow-hidden rounded-lg border border-slate-200 shadow-sm w-20 h-16 bg-slate-100 shrink-0 flex items-center justify-center" 
+                   onclick="event.stopPropagation(); openPhotoLightBox('${escapeJs(displayPhoto)}', '${escapeJs(capText)}', '${escapeJs(rawPhoto)}')">
+                <img src="${displayPhoto}" alt="Visit Photo" 
+                     loading="lazy"
+                     onerror="handleImageError(this, '${escapeJs(rawPhoto)}')" 
+                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200">
                 <span class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-bold transition-opacity">
                   <i class="fa-solid fa-magnifying-glass-plus"></i>
                 </span>
@@ -3207,14 +3319,38 @@ function triggerNewVisitForLocation(deptId, block, panchayat, village, facilityN
   showToast("info", "निरीक्षण फॉर्म तैयार", `${displayTarget} हेतु निरीक्षण फॉर्म लोड किया गया।`);
 }
 
-function openPhotoLightBox(src, caption) {
+function openPhotoLightBox(src, caption, driveUrl) {
   const modal = document.getElementById('photo-lightbox-modal');
   const img = document.getElementById('lightbox-image');
   const cap = document.getElementById('lightbox-caption');
+  const driveLink = document.getElementById('lightbox-drive-link');
   if (!modal || !img) return;
 
-  img.src = src;
+  const displaySrc = formatDriveImageUrl(src);
+  img.src = displaySrc;
+  delete img.dataset.fallbackTried1;
+  delete img.dataset.fallbackTried2;
+  img.style.display = '';
+  img.onerror = function() {
+    handleImageError(img, driveUrl || src);
+  };
+
   if (cap) cap.innerText = caption || 'Visit Photo';
+
+  if (driveLink) {
+    const effectiveDriveUrl = driveUrl || src;
+    const fileId = getGoogleDriveFileId(effectiveDriveUrl);
+    if (fileId) {
+      driveLink.href = `https://drive.google.com/file/d/${fileId}/view?usp=drivesdk`;
+      driveLink.classList.remove('hidden');
+    } else if (effectiveDriveUrl && (effectiveDriveUrl.startsWith('http://') || effectiveDriveUrl.startsWith('https://'))) {
+      driveLink.href = effectiveDriveUrl;
+      driveLink.classList.remove('hidden');
+    } else {
+      driveLink.classList.add('hidden');
+    }
+  }
+
   modal.classList.remove('hidden');
 }
 
@@ -3305,11 +3441,16 @@ function renderProjectTimelineProgression(projectId) {
     let photoHtml = "";
     if (v.photo) {
       const capText = `Visit ${idx+1}: ${proj ? proj.name : ''} (${formatDateString(v.date)})`;
+      const displayPhoto = formatDriveImageUrl(v.photo);
+      const rawPhoto = v.rawPhotoUrl || v.photo;
       photoHtml = `
         <div class="mt-2">
-          <div class="relative group cursor-pointer overflow-hidden rounded-lg border border-slate-200 w-24 h-20 bg-slate-100" 
-               onclick="openPhotoLightBox('${escapeJs(v.photo)}', '${escapeJs(capText)}')">
-            <img src="${v.photo}" alt="Progress Photo" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
+          <div class="relative group cursor-pointer overflow-hidden rounded-lg border border-slate-200 w-24 h-20 bg-slate-100 flex items-center justify-center" 
+               onclick="openPhotoLightBox('${escapeJs(displayPhoto)}', '${escapeJs(capText)}', '${escapeJs(rawPhoto)}')">
+            <img src="${displayPhoto}" alt="Progress Photo" 
+                 loading="lazy"
+                 onerror="handleImageError(this, '${escapeJs(rawPhoto)}')"
+                 class="w-full h-full object-cover group-hover:scale-105 transition-transform">
             <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity">
               <i class="fa-solid fa-magnifying-glass-plus"></i>
             </div>
@@ -3553,6 +3694,12 @@ function renderReportsTable() {
     return;
   }
   empty.classList.add('hidden');
+
+  // Sort by latest inspection date / update descending (latest on top)
+  filtered.sort((a, b) => {
+    const diff = parseDateValue(b.date) - parseDateValue(a.date);
+    return diff !== 0 ? diff : (Number(b.id) || 0) - (Number(a.id) || 0);
+  });
   
   filtered.forEach(i => {
     const tr = document.createElement('tr');
@@ -3827,21 +3974,33 @@ function showInspectionDetail(id) {
   // Set images
   let photoSection = "";
   if (i.photo) {
+    const displayPhoto = formatDriveImageUrl(i.photo);
+    const rawPhoto = i.rawPhotoUrl || i.photo;
     photoSection += `
       <div class="space-y-1.5 flex-1">
         <span class="text-[9px] text-slate-400 font-bold uppercase block">निरीक्षण छायाचित्र (Inspection Photo):</span>
-        <div class="rounded-xl overflow-hidden border border-slate-200 bg-slate-50 p-1">
-          <img src="${i.photo}" alt="Inspection view" class="w-full h-40 sm:h-44 object-cover rounded-lg cursor-pointer hover:opacity-95 transition-opacity" onclick="openPhotoLightBox('${escapeJs(i.photo)}', 'निरीक्षण छायाचित्र: ${escapeJs(i.facilityName || i.village)}')">
+        <div class="rounded-xl overflow-hidden border border-slate-200 bg-slate-50 p-1 flex items-center justify-center min-h-[160px]">
+          <img src="${displayPhoto}" alt="Inspection view" 
+               loading="lazy"
+               onerror="handleImageError(this, '${escapeJs(rawPhoto)}')" 
+               class="w-full h-40 sm:h-44 object-cover rounded-lg cursor-pointer hover:opacity-95 transition-opacity" 
+               onclick="openPhotoLightBox('${escapeJs(displayPhoto)}', 'निरीक्षण छायाचित्र: ${escapeJs(i.facilityName || i.village)}', '${escapeJs(rawPhoto)}')">
         </div>
       </div>
     `;
   }
   if (i.actionPhoto) {
+    const displayActionPhoto = formatDriveImageUrl(i.actionPhoto);
+    const rawActionPhoto = i.rawActionPhotoUrl || i.actionPhoto;
     photoSection += `
       <div class="space-y-1.5 flex-1">
         <span class="text-[9px] text-slate-400 font-bold uppercase block">विभाग कार्रवाई छायाचित्र (Action Taken Photo):</span>
-        <div class="rounded-xl overflow-hidden border border-slate-200 bg-slate-50 p-1">
-          <img src="${i.actionPhoto}" alt="Action Taken view" class="w-full h-40 sm:h-44 object-cover rounded-lg cursor-pointer hover:opacity-95 transition-opacity" onclick="openPhotoLightBox('${escapeJs(i.actionPhoto)}', 'विभाग कार्रवाई छायाचित्र: ${escapeJs(i.facilityName || i.village)}')">
+        <div class="rounded-xl overflow-hidden border border-slate-200 bg-slate-50 p-1 flex items-center justify-center min-h-[160px]">
+          <img src="${displayActionPhoto}" alt="Action Taken view" 
+               loading="lazy"
+               onerror="handleImageError(this, '${escapeJs(rawActionPhoto)}')" 
+               class="w-full h-40 sm:h-44 object-cover rounded-lg cursor-pointer hover:opacity-95 transition-opacity" 
+               onclick="openPhotoLightBox('${escapeJs(displayActionPhoto)}', 'विभाग कार्रवाई छायाचित्र: ${escapeJs(i.facilityName || i.village)}', '${escapeJs(rawActionPhoto)}')">
         </div>
       </div>
     `;
@@ -4055,6 +4214,38 @@ function onNativeDatePicked(val) {
       saveCurrentFormDraft();
     }
   }
+}
+
+function parseDateValue(str) {
+  if (!str) return 0;
+  if (str instanceof Date) return isNaN(str.getTime()) ? 0 : str.getTime();
+  if (typeof str === 'number') return str;
+  if (typeof str !== 'string') return 0;
+  const clean = str.trim();
+  const ddmmyyyy = clean.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if (ddmmyyyy) {
+    return new Date(
+      parseInt(ddmmyyyy[3], 10),
+      parseInt(ddmmyyyy[2], 10) - 1,
+      parseInt(ddmmyyyy[1], 10),
+      parseInt(ddmmyyyy[4] || 0, 10),
+      parseInt(ddmmyyyy[5] || 0, 10),
+      parseInt(ddmmyyyy[6] || 0, 10)
+    ).getTime();
+  }
+  const yyyymmdd = clean.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:[T\s](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if (yyyymmdd) {
+    return new Date(
+      parseInt(yyyymmdd[1], 10),
+      parseInt(yyyymmdd[2], 10) - 1,
+      parseInt(yyyymmdd[3], 10),
+      parseInt(yyyymmdd[4] || 0, 10),
+      parseInt(yyyymmdd[5] || 0, 10),
+      parseInt(yyyymmdd[6] || 0, 10)
+    ).getTime();
+  }
+  const ts = Date.parse(clean);
+  return isNaN(ts) ? 0 : ts;
 }
 
 function formatDateString(str) {
